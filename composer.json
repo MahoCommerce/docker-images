@@ -1,0 +1,28 @@
+{
+    "name": "mahocommerce/maho-starter",
+    "license": [
+        "OSL-3.0",
+        "AFL-3.0"
+    ],
+    "type": "project",
+    "require": {
+        "mahocommerce/maho": "dev-main",
+        "tinymce/tinymce": "6.8.*",
+        "mklkj/tinymce-i18n": "*"
+    },
+    "config": {
+        "allow-plugins": {
+            "cweagans/composer-patches": true,
+            "magento-hackathon/magento-composer-installer": false,
+            "mahocommerce/maho-composer-plugin": true
+        },
+        "audit": {
+            "ignore": {
+                "CVE-2024-29881": "Fixed in https://github.com/MahoCommerce/maho/commit/4868c7f2876d99f9a70694be07bf3f8473b16aea"
+            }
+        }
+    },
+    "extra": {
+        "enable-patching": true
+    }
+}
