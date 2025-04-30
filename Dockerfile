@@ -9,8 +9,8 @@ RUN apt update && apt install -y git patch unzip default-mysql-client
 # RUN install-php-extensions ffi vips
 
 COPY . /app
-rm -rf .github .dockerignore Dockerfile php.ini
 COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 COPY php.ini $PHP_INI_DIR/php.ini
 
+RUN rm -rf .github .dockerignore Dockerfile php.ini
 RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --optimize-autoloader --prefer-dist --no-interaction --no-progress
