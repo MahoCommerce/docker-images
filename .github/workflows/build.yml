@@ -2,6 +2,8 @@ name: Build
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *' # Runs every day at 03:00 UTC
 
 jobs:
   docker:
@@ -9,6 +11,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Remove .github folder
+        run: rm -rf .github
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -23,5 +27,5 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          tags: "${{ github.ref_name }}"
+          tags: "mahocommerce/maho:${{ github.ref_name }}"
           outputs: "type=registry"
