@@ -11,15 +11,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up PHP 8.4
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          tools: composer
-
-      - name: Install Composer dependencies
-        run: composer install --no-dev --no-interaction --optimize-autoloader
         
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
