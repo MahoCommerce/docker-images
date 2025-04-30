@@ -12,4 +12,4 @@ COPY . /app
 COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 COPY php.ini $PHP_INI_DIR/php.ini
 
-RUN composer install --optimize-autoloader --prefer-dist --no-interaction --no-progress
+RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --optimize-autoloader --prefer-dist --no-interaction --no-progress
