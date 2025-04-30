@@ -11,9 +11,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
-      - name: Remove .github folder
-        run: rm -rf .github
 
       - name: Set up PHP 8.4
         uses: shivammathur/setup-php@v2
