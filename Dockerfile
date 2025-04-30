@@ -8,7 +8,7 @@ RUN apt update && apt install -y git patch unzip default-mysql-client
 #Uncomment the next lines if you want libvips image processing to work
 # RUN install-php-extensions ffi vips
 
-COPY . /app
+COPY --exclude=.github --exclude=.dockerignore --exclude=Dockerfile --exclude=php.ini . /app
 COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 COPY php.ini $PHP_INI_DIR/php.ini
 
