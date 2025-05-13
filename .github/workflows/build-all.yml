@@ -1,4 +1,4 @@
-name: Build All Branches
+name: Build All
 
 on:
   schedule:
@@ -26,13 +26,17 @@ jobs:
   build-branches:
     needs: get-branches
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     strategy:
       matrix:
         branch: ${{ fromJson(needs.get-branches.outputs.branches) }}
       fail-fast: false
     steps:
       - name: Trigger build workflow for ${{ matrix.branch }}
-        uses: benc-uk/workflow-dispatch@v1
+        uses: peter-evans/repository-dispatch@v3
         with:
-          workflow: build.yml
-          inputs: '{"branch": "${{ matrix.branch }}"}'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          event-type: build-branch
+          client-payload: '{"branch": "${{ matrix.branch }}"}'
