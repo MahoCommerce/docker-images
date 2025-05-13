@@ -36,7 +36,6 @@ jobs:
       - name: Trigger build workflow for ${{ matrix.branch }}
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.WORKFLOW_DISPATCH }}
-          repository: ${{ github.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           event-type: build-branch
           client-payload: '{"branch": "${{ matrix.branch }}"}'
