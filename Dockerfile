@@ -14,5 +14,4 @@ COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 COPY php.ini $PHP_INI_DIR/php.ini
 
 RUN rm -rf .github .dockerignore Dockerfile php.ini
-RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --optimize-autoloader --prefer-dist --no-interaction --no-progress --no-dev \
-  && rm -rf /root/.composer/cache /tmp/*
+RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --optimize-autoloader --prefer-dist --no-interaction --no-progress --no-dev --no-cache
