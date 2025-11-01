@@ -5,7 +5,7 @@ This image is specifically designed for deployment in cloud-based production env
 ## Repository tags
 
 - `nightly`: `dev-main` version of Maho, running on latest `FrankenPHP` +`PHP 8.4`
-- `latest`: latest stable release version of Maho (25.7.0), running on latest `FrankenPHP` +`PHP 8.4`
+- `latest`: latest stable release version of Maho (25.11.0), running on latest `FrankenPHP` +`PHP 8.4`
 - `25.11.0-php8.4`
 - `25.11.0-php8.3`
 - `25.9.0-php8.4`
