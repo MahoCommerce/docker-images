@@ -1,4 +1,4 @@
-FROM dunglas/frankenphp:php8.4-bookworm
+FROM dunglas/frankenphp:php8.5-bookworm
 
 RUN groupadd -g 1000 maho && useradd -u 1000 -g 1000 -m maho
 
