@@ -1,0 +1,91 @@
+name: Sync Releases
+
+on:
+  workflow_dispatch:
+
+env:
+  PHP_VERSIONS: "8.3 8.4 8.5"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for new release and create branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+
+          # Ensure we have all remote branches
+          git fetch origin
+
+          # Fetch latest release from mahocommerce/maho
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/mahocommerce/maho/releases/latest | jq -r '.tag_name')
+          echo "Latest release: $LATEST_RELEASE"
+
+          if [ -z "$LATEST_RELEASE" ] || [ "$LATEST_RELEASE" = "null" ]; then
+            echo "Could not fetch latest release"
+            exit 1
+          fi
+
+          # Check if branches already exist for this release
+          FIRST_PHP_VERSION=$(echo $PHP_VERSIONS | cut -d' ' -f1)
+          TEST_BRANCH="${LATEST_RELEASE}-php${FIRST_PHP_VERSION}"
+
+          if git ls-remote --heads origin "$TEST_BRANCH" | grep -q "$TEST_BRANCH"; then
+            echo "Branches for $LATEST_RELEASE already exist, nothing to do"
+            exit 0
+          fi
+
+          echo "New release detected: $LATEST_RELEASE"
+
+          # Find previous release by looking at existing branches
+          PREVIOUS_RELEASE=$(git branch -r | grep -oP '\d+\.\d+\.\d+(?=-php)' | sort -V | tail -1)
+          echo "Previous release: $PREVIOUS_RELEASE"
+
+          if [ -z "$PREVIOUS_RELEASE" ]; then
+            echo "Could not determine previous release"
+            exit 1
+          fi
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create branches for each PHP version
+          for PHP_VERSION in $PHP_VERSIONS; do
+            SOURCE_BRANCH="origin/${PREVIOUS_RELEASE}-php${PHP_VERSION}"
+            NEW_BRANCH="${LATEST_RELEASE}-php${PHP_VERSION}"
+
+            echo "Creating $NEW_BRANCH from $SOURCE_BRANCH"
+
+            # Check if source branch exists
+            if ! git ls-remote --heads origin "${PREVIOUS_RELEASE}-php${PHP_VERSION}" | grep -q "${PREVIOUS_RELEASE}-php${PHP_VERSION}"; then
+              echo "Source branch ${PREVIOUS_RELEASE}-php${PHP_VERSION} does not exist, skipping"
+              continue
+            fi
+
+            # Create new branch from previous release
+            git checkout -b "$NEW_BRANCH" "$SOURCE_BRANCH"
+
+            # Update composer.json with new version
+            sed -i "s/\"mahocommerce\/maho\": \"${PREVIOUS_RELEASE}\"/\"mahocommerce\/maho\": \"${LATEST_RELEASE}\"/" composer.json
+
+            # Commit and push
+            git add composer.json
+            git commit -m "Update to Maho ${LATEST_RELEASE}"
+            git push origin "$NEW_BRANCH"
+
+            echo "Created and pushed $NEW_BRANCH"
+
+            # Return to detached HEAD for next iteration
+            git checkout --detach
+          done
+
+          echo "All branches created successfully"
