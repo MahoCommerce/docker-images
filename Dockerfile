@@ -2,8 +2,8 @@ FROM dunglas/frankenphp:php8.5-bookworm
 
 RUN groupadd -g 1000 maho && useradd -u 1000 -g 1000 -m maho
 
-RUN install-php-extensions pdo_mysql pdo_pgsql pgsql pdo_sqlite sqlite3 gd intl zip opcache ctype curl dom fileinfo filter ftp hash iconv json libxml mbstring openssl session simplexml soap spl zlib \
-  && apt update && apt install -y git patch unzip default-mysql-client postgresql-client \
+RUN install-php-extensions pdo_mysql pdo_pgsql pgsql pdo_sqlite gd intl zip opcache ctype curl dom fileinfo filter ftp hash iconv json libxml mbstring openssl session simplexml soap spl zlib \
+  && apt update && apt install -y git patch unzip default-mysql-client postgresql-client sqlite3 \
   && apt clean \
   && rm -rf /var/lib/apt/lists/* /var/log/* /var/cache/* /tmp/* /root/.cache
 
