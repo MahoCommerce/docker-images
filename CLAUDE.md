@@ -49,7 +49,7 @@ composer show
 ## Architecture & Key Components
 
 ### Docker Setup
-- **Base Image**: `dunglas/frankenphp:php8.x-bookworm` - Modern PHP application server (PHP version varies by branch, e.g., php8.5 on nightly)
+- **Base Image**: `dunglas/frankenphp:php8.x-trixie` - Modern PHP application server (PHP version varies by branch, e.g., php8.5 on nightly)
 - **User**: `maho` (UID/GID 1000) - Non-root user for security
 - **PHP Extensions**: All e-commerce essentials pre-installed (MySQL, GD, intl, etc.)
 - **Composer**: Installed and dependencies auto-loaded during build

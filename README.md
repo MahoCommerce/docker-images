@@ -1,6 +1,6 @@
 # Official docker image for Maho open source ecommerce platform
 
-This image is specifically designed for deployment in cloud-based production environments such as Sevalla, DigitalOean, and similar PaaS providers. This image does not include MySQL or any database. You will need to provision a managed MySQL database separately through your cloud provider.
+This image is based on Debian Trixie and is specifically designed for deployment in cloud-based production environments such as Sevalla, DigitalOcean, and similar PaaS providers. This image does not include any database server. You will need to provision a managed database (MySQL, PostgreSQL, or SQLite) separately through your cloud provider. The image includes CLI clients for all three databases.
 
 ## Repository tags
 
@@ -24,7 +24,7 @@ This image is specifically designed for deployment in cloud-based production env
 ### Option 1: start from local development
 
 - Setup your docker based web server using this image
-- Create an empty database, depending on how your cloud provider allows you
+- Create an empty database (MySQL or PostgreSQL), depending on how your cloud provider allows you
 - Install the platform locally during development, generating a `local.xml` file with all configurations
 - Copy the `local.xml` and change the configuration options as needed (eg: replacing database hostname, user, pass etc)
 - Create an environment variable on your cloud provider configuration, called `MAHO_LOCAL_XML` and copy the contents of the previously edited `local.xml` into it
@@ -34,7 +34,7 @@ This image is specifically designed for deployment in cloud-based production env
 ### Option 2: online installation
 
 - Setup your docker based web server using this image
-- Create an empty database, depending on how your cloud provider allows you
+- Create an empty database (MySQL or PostgreSQL), depending on how your cloud provider allows you
 - Start the whole infrastructure
 - Navigate to the domain you pointed the infrastructure to, the web installation should start
 - After installing Maho, navigate via ssh to the docker container, copy the contents of `app/etc/local.xml``
