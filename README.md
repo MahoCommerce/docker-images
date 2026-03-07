@@ -1,24 +1,24 @@
 # Official docker image for Maho open source ecommerce platform
 
-This image is based on FrankenPHP and is specifically designed for deployment in cloud-based production environments such as Sevalla, DigitalOcean, and similar PaaS providers. This image does not include any database server. You will need to provision a managed database (MySQL, PostgreSQL, or SQLite) separately through your cloud provider. Database support varies by version — see the tags below.
+This image is based on FrankenPHP and is specifically designed for deployment in cloud-based production environments such as Sevalla, DigitalOcean, and similar PaaS providers. This image does not include a database server. You will need to provision a managed database (MySQL or PostgreSQL) through your cloud provider, or use SQLite which requires no external service. Database support varies by version - see the tags below.
 
 ## Repository tags
 
 - `nightly`: `dev-main` version of Maho, running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
 - `latest`: latest stable release version of Maho (26.3.0), running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
-- `26.3.0-php8.5`, `26.3.0-php8.4`, `26.3.0-php8.3` — Trixie, MySQL + PostgreSQL + SQLite
-- `26.1.0-php8.5`, `26.1.0-php8.4`, `26.1.0-php8.3` — Bookworm, MySQL + PostgreSQL + SQLite
-- `25.11.0-php8.4`, `25.11.0-php8.3` — Bookworm, MySQL only
-- `25.9.0-php8.4`, `25.9.0-php8.3` — Bookworm, MySQL only
-- `25.7.0-php8.4`, `25.7.0-php8.3` — Bookworm, MySQL only
-- `25.5.0-php8.4`, `25.5.0-php8.3`, `25.5.0-php8.2` — Bookworm, MySQL only
+- `26.3.0-php8.5`, `26.3.0-php8.4`, `26.3.0-php8.3` -Trixie, MySQL + PostgreSQL + SQLite
+- `26.1.0-php8.5`, `26.1.0-php8.4`, `26.1.0-php8.3` -Bookworm, MySQL + PostgreSQL + SQLite
+- `25.11.0-php8.4`, `25.11.0-php8.3` -Bookworm, MySQL only
+- `25.9.0-php8.4`, `25.9.0-php8.3` -Bookworm, MySQL only
+- `25.7.0-php8.4`, `25.7.0-php8.3` -Bookworm, MySQL only
+- `25.5.0-php8.4`, `25.5.0-php8.3`, `25.5.0-php8.2` -Bookworm, MySQL only
 
 ## Deployment
 
 ### Option 1: start from local development
 
 - Setup your docker based web server using this image
-- Create an empty database (MySQL or PostgreSQL), depending on how your cloud provider allows you
+- Create an empty database (MySQL, PostgreSQL, or SQLite), depending on how your cloud provider allows you
 - Install the platform locally during development, generating a `local.xml` file with all configurations
 - Copy the `local.xml` and change the configuration options as needed (eg: replacing database hostname, user, pass etc)
 - Create an environment variable on your cloud provider configuration, called `MAHO_LOCAL_XML` and copy the contents of the previously edited `local.xml` into it
@@ -28,7 +28,7 @@ This image is based on FrankenPHP and is specifically designed for deployment in
 ### Option 2: online installation
 
 - Setup your docker based web server using this image
-- Create an empty database (MySQL or PostgreSQL), depending on how your cloud provider allows you
+- Create an empty database (MySQL, PostgreSQL, or SQLite), depending on how your cloud provider allows you
 - Start the whole infrastructure
 - Navigate to the domain you pointed the infrastructure to, the web installation should start
 - After installing Maho, navigate via ssh to the docker container, copy the contents of `app/etc/local.xml`
