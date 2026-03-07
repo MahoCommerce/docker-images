@@ -6,14 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Single tag to build (leave empty for default behavior)'
+        description: 'Single tag to build (leave empty to build all)'
         required: false
         type: string
-      all:
-        description: 'Build all tags'
-        required: false
-        type: boolean
-        default: false
 
 jobs:
   load-matrix:
@@ -30,10 +25,7 @@ jobs:
           if [ -n "${{ inputs.tag }}" ]; then
             # Single tag requested
             matrix=$(jq -c --arg tag "${{ inputs.tag }}" '[.[] | select(.tag == $tag)]' versions.json)
-          elif [ "${{ inputs.all }}" = "true" ]; then
-            # All tags requested
-            matrix=$(jq -c '.' versions.json)
-          else
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
             # Scheduled: all on Sundays, nightly-only otherwise
             day_of_week=$(date +%u)
             if [ "$day_of_week" = "7" ]; then
@@ -41,6 +33,9 @@ jobs:
             else
               matrix=$(jq -c '[.[] | select(.tag == "nightly")]' versions.json)
             fi
+          else
+            # Manual trigger with no tag: build all
+            matrix=$(jq -c '.' versions.json)
           fi
           echo "matrix={\"include\":$matrix}" >> "$GITHUB_OUTPUT"
 
