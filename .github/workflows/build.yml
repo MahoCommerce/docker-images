@@ -1,12 +1,19 @@
 name: Build
 
 on:
+  schedule:
+    - cron: '30 3 * * *'  # Runs at 03:30 UTC every day
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Single tag to build (leave empty to build all)'
+        description: 'Single tag to build (leave empty for default behavior)'
         required: false
         type: string
+      all:
+        description: 'Build all tags'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   load-matrix:
@@ -21,9 +28,19 @@ jobs:
         id: set
         run: |
           if [ -n "${{ inputs.tag }}" ]; then
+            # Single tag requested
             matrix=$(jq -c --arg tag "${{ inputs.tag }}" '[.[] | select(.tag == $tag)]' versions.json)
-          else
+          elif [ "${{ inputs.all }}" = "true" ]; then
+            # All tags requested
             matrix=$(jq -c '.' versions.json)
+          else
+            # Scheduled: all on Sundays, nightly-only otherwise
+            day_of_week=$(date +%u)
+            if [ "$day_of_week" = "7" ]; then
+              matrix=$(jq -c '.' versions.json)
+            else
+              matrix=$(jq -c '[.[] | select(.tag == "nightly")]' versions.json)
+            fi
           fi
           echo "matrix={\"include\":$matrix}" >> "$GITHUB_OUTPUT"
 
