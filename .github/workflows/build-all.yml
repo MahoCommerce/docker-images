@@ -4,53 +4,72 @@ on:
   schedule:
     - cron: '30 3 * * *'  # Runs at 03:30 UTC every day
   workflow_dispatch:
+    inputs:
+      all:
+        description: 'Build all tags (not just nightly)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
-  get-branches:
+  load-matrix:
     runs-on: ubuntu-latest
     outputs:
-      branches: ${{ steps.get-branches.outputs.result }}
+      matrix: ${{ steps.set.outputs.matrix }}
     steps:
-      - name: Get all branches
-        id: get-branches
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const dayOfWeek = new Date().getDay();
-            const result = await github.rest.repos.listBranches({
-              owner: context.repo.owner,
-              repo: context.repo.repo
-            });
+      - name: Checkout
+        uses: actions/checkout@v6
 
-            // If it's Sunday (0), return all branches
-            // Otherwise, return only 'nightly' branch
-            if (dayOfWeek === 0) {
-              return result.data.map(branch => branch.name);
-            } else {
-              return result.data
-                .filter(branch => branch.name === 'nightly')
-                .map(branch => branch.name);
-            }
-  
-  build-branch:
-    needs: get-branches
+      - name: Set matrix
+        id: set
+        run: |
+          day_of_week=$(date +%u)
+          # Build all on Sundays (7) or when manually requested
+          if [ "$day_of_week" = "7" ] || [ "${{ inputs.all }}" = "true" ]; then
+            matrix=$(jq -c '.' versions.json)
+          else
+            matrix=$(jq -c '[.[] | select(.tag == "nightly")]' versions.json)
+          fi
+          echo "matrix={\"include\":$matrix}" >> "$GITHUB_OUTPUT"
+
+  docker:
+    needs: load-matrix
     runs-on: ubuntu-latest
-    permissions:
-      actions: write
-      contents: write
     strategy:
-      matrix:
-        branch: ${{ fromJson(needs.get-branches.outputs.branches) }}
+      matrix: ${{ fromJson(needs.load-matrix.outputs.matrix) }}
       fail-fast: false
     steps:
-      - name: Trigger build workflow for ${{ matrix.branch }}
-        uses: actions/github-script@v6
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set composer.json
+        run: |
+          cp "composer_json/${{ matrix.composer_json }}.json" composer.json
+          jq --arg v "${{ matrix.maho }}" '.require["mahocommerce/maho"] = $v' composer.json > tmp && mv tmp composer.json
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: 'MahoCommerce',
-              repo: 'docker-images',
-              workflow_id: 'build.yml',
-              ref: '${{ matrix.branch }}'
-            });
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PAT }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: cloud
+          endpoint: "mahocommerce/maho"
+          install: true
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          tags: "mahocommerce/maho:${{ matrix.tag }}"
+          build-args: |
+            PHP_VERSION=${{ matrix.php }}
+            DEBIAN_VARIANT=${{ matrix.debian }}
+            MYSQL=${{ matrix.mysql }}
+            PGSQL=${{ matrix.pgsql }}
+            SQLITE=${{ matrix.sqlite }}
+          outputs: "type=registry"

@@ -1,33 +1,70 @@
 name: Build
 
 on:
-  workflow_call:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Single tag to build (leave empty to build all)'
+        required: false
+        type: string
 
 jobs:
-  docker:
+  load-matrix:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        
+
+      - name: Set matrix
+        id: set
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            matrix=$(jq -c --arg tag "${{ inputs.tag }}" '[.[] | select(.tag == $tag)]' versions.json)
+          else
+            matrix=$(jq -c '.' versions.json)
+          fi
+          echo "matrix={\"include\":$matrix}" >> "$GITHUB_OUTPUT"
+
+  docker:
+    needs: load-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.load-matrix.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set composer.json
+        run: |
+          cp "composer_json/${{ matrix.composer_json }}.json" composer.json
+          jq --arg v "${{ matrix.maho }}" '.require["mahocommerce/maho"] = $v' composer.json > tmp && mv tmp composer.json
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PAT }}
-          
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver: cloud
           endpoint: "mahocommerce/maho"
           install: true
-          
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          tags: "mahocommerce/maho:${{ github.ref_name }}"
+          tags: "mahocommerce/maho:${{ matrix.tag }}"
+          build-args: |
+            PHP_VERSION=${{ matrix.php }}
+            DEBIAN_VARIANT=${{ matrix.debian }}
+            MYSQL=${{ matrix.mysql }}
+            PGSQL=${{ matrix.pgsql }}
+            SQLITE=${{ matrix.sqlite }}
           outputs: "type=registry"
