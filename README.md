@@ -1,23 +1,17 @@
 # Official docker image for Maho open source ecommerce platform
 
-This image is based on Debian Trixie and is specifically designed for deployment in cloud-based production environments such as Sevalla, DigitalOcean, and similar PaaS providers. This image does not include any database server. You will need to provision a managed database (MySQL, PostgreSQL, or SQLite) separately through your cloud provider. The image includes CLI clients for all three databases.
+This image is based on FrankenPHP and is specifically designed for deployment in cloud-based production environments such as Sevalla, DigitalOcean, and similar PaaS providers. This image does not include any database server. You will need to provision a managed database (MySQL, PostgreSQL, or SQLite) separately through your cloud provider. Database support varies by version — see the tags below.
 
 ## Repository tags
 
-- `nightly`: `dev-main` version of Maho, running on latest `FrankenPHP` +`PHP 8.5`
-- `latest`: latest stable release version of Maho (26.1.0), running on latest `FrankenPHP` +`PHP 8.5`
-- `26.1.0-php8.5`
-- `26.1.0-php8.4`
-- `26.1.0-php8.3`
-- `25.11.0-php8.4`
-- `25.11.0-php8.3`
-- `25.9.0-php8.4`
-- `25.9.0-php8.3`
-- `25.7.0-php8.4`
-- `25.7.0-php8.3`
-- `25.5.0-php8.4`
-- `25.5.0-php8.3`
-- `25.5.0-php8.2`
+- `nightly`: `dev-main` version of Maho, running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
+- `latest`: latest stable release version of Maho (26.3.0), running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
+- `26.3.0-php8.5`, `26.3.0-php8.4`, `26.3.0-php8.3` — Trixie, MySQL + PostgreSQL + SQLite
+- `26.1.0-php8.5`, `26.1.0-php8.4`, `26.1.0-php8.3` — Bookworm, MySQL + PostgreSQL + SQLite
+- `25.11.0-php8.4`, `25.11.0-php8.3` — Bookworm, MySQL only
+- `25.9.0-php8.4`, `25.9.0-php8.3` — Bookworm, MySQL only
+- `25.7.0-php8.4`, `25.7.0-php8.3` — Bookworm, MySQL only
+- `25.5.0-php8.4`, `25.5.0-php8.3`, `25.5.0-php8.2` — Bookworm, MySQL only
 
 ## Deployment
 
@@ -37,7 +31,7 @@ This image is based on Debian Trixie and is specifically designed for deployment
 - Create an empty database (MySQL or PostgreSQL), depending on how your cloud provider allows you
 - Start the whole infrastructure
 - Navigate to the domain you pointed the infrastructure to, the web installation should start
-- After installing Maho, navigate via ssh to the docker container, copy the contents of `app/etc/local.xml``
+- After installing Maho, navigate via ssh to the docker container, copy the contents of `app/etc/local.xml`
 - In your cloud provider configurations, create an environment variable called `MAHO_LOCAL_XML` and paste the contents of the `local.xml` into it (the previously created file would be lost by a new deployment or by an update of the docker image)
 - Restart the whole infrastructure and test that everything works as expected
 
@@ -86,7 +80,7 @@ services:
             - ./mysql-data:/var/lib/mysql
 ```
 
-This configuration with have the app (which mainly will contain `local.xml`), media and mysql-data folders directly mapped on the host, but you can manage those the way you prefer the most.
+This configuration will have the app (which mainly will contain `local.xml`), media and mysql-data folders directly mapped on the host, but you can manage those the way you prefer the most.
 
 After starting the containers, you can install Maho with:
 
@@ -98,4 +92,4 @@ docker exec -it maho ./maho cache:flush
 
 ## Customizing the platform
 
-We all know an ecommerce project needs addon modules and custom development, thus, most probably, you won't be able to use this image as is. Our suggestion is to import it in your project repository and build your own on top if it. This way you'll take advantage of the official developments/support/updates, with the power of your custom implementations.
+We all know an ecommerce project needs addon modules and custom development, thus, most probably, you won't be able to use this image as is. Our suggestion is to import it in your project repository and build your own on top of it. This way you'll take advantage of the official developments/support/updates, with the power of your custom implementations.
