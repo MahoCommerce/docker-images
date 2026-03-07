@@ -40,6 +40,7 @@ jobs:
           echo "matrix={\"include\":$matrix}" >> "$GITHUB_OUTPUT"
 
   docker:
+    name: ${{ matrix.tag }}
     needs: load-matrix
     runs-on: ubuntu-latest
     strategy:
