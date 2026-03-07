@@ -65,7 +65,6 @@ jobs:
         with:
           driver: cloud
           endpoint: "mahocommerce/maho"
-          install: true
 
       - name: Build and push
         uses: docker/build-push-action@v6
