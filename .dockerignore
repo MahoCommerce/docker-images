@@ -2,3 +2,5 @@
 .git
 .github
 Dockerfile
+versions.json
+composer_json
