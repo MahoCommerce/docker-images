@@ -26,11 +26,13 @@ jobs:
             # Single tag requested
             matrix=$(jq -c --arg tag "${{ inputs.tag }}" '[.[] | select(.tag == $tag)]' versions.json)
           elif [ "${{ github.event_name }}" = "schedule" ]; then
-            # Scheduled: all on Sundays, nightly-only otherwise
             day_of_week=$(date +%u)
-            if [ "$day_of_week" = "7" ]; then
+            week_number=$(date +%V)
+            if [ "$day_of_week" = "7" ] && [ $((week_number % 2)) -eq 0 ]; then
+              # Biweekly Sunday: build all tags
               matrix=$(jq -c '.' versions.json)
             else
+              # Other days: nightly only
               matrix=$(jq -c '[.[] | select(.tag == "nightly")]' versions.json)
             fi
           else
