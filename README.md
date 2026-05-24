@@ -5,7 +5,8 @@ This image is based on FrankenPHP and is specifically designed for deployment in
 ## Repository tags
 
 - `nightly`: `dev-main` version of Maho, running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
-- `latest`: latest stable release version of Maho (26.3.0), running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
+- `latest`: latest stable release version of Maho (26.5.0), running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
+- `26.5.0-php8.5`, `26.5.0-php8.4`, `26.5.0-php8.3` -Trixie, MySQL + PostgreSQL + SQLite
 - `26.3.0-php8.5`, `26.3.0-php8.4`, `26.3.0-php8.3` -Trixie, MySQL + PostgreSQL + SQLite
 - `26.1.0-php8.5`, `26.1.0-php8.4`, `26.1.0-php8.3` -Bookworm, MySQL + PostgreSQL + SQLite
 - `25.11.0-php8.4`, `25.11.0-php8.3` -Bookworm, MySQL only
