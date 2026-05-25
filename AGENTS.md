@@ -58,6 +58,7 @@ Each entry defines a Docker image variant with:
 - `maho`: MahoCommerce version or `dev-main`
 - `composer_json`: which template from `composer_json/` to use
 - `mysql`, `pgsql`, `sqlite`: database support booleans
+- `aliases` (optional): list of tag names to retag onto this image after a successful build (e.g. `["latest", "latest-php8.5"]`). Retag uses `docker buildx imagetools create` — no rebuild, no Build Cloud minutes. An alias can also be passed to the `workflow_dispatch` `tag` input to retag without rebuilding the source.
 
 ### Composer Templates (`composer_json/`)
 Different MahoCommerce versions need different `composer.json` structures:
