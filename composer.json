@@ -12,6 +12,9 @@
         "allow-plugins": {
             "magento-hackathon/magento-composer-installer": false,
             "mahocommerce/maho-composer-plugin": true
+        },
+        "platform": {
+            "php": "8.3"
         }
     }
 }
