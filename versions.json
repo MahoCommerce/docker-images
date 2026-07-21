@@ -14,8 +14,11 @@
   { "tag": "26.3.0-php8.3",  "php": "8.3", "debian": "trixie",   "maho": "26.3.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true },
   { "tag": "26.3.0-php8.4",  "php": "8.4", "debian": "trixie",   "maho": "26.3.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true },
   { "tag": "26.3.0-php8.5",  "php": "8.5", "debian": "trixie",   "maho": "26.3.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true },
-  { "tag": "26.5.0-php8.3",  "php": "8.3", "debian": "trixie",   "maho": "26.5.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true, "aliases": ["latest-php8.3"] },
-  { "tag": "26.5.0-php8.4",  "php": "8.4", "debian": "trixie",   "maho": "26.5.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true, "aliases": ["latest-php8.4"] },
-  { "tag": "26.5.0-php8.5",  "php": "8.5", "debian": "trixie",   "maho": "26.5.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true, "aliases": ["latest", "latest-php8.5"] },
+  { "tag": "26.5.0-php8.3",  "php": "8.3", "debian": "trixie",   "maho": "26.5.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true },
+  { "tag": "26.5.0-php8.4",  "php": "8.4", "debian": "trixie",   "maho": "26.5.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true },
+  { "tag": "26.5.0-php8.5",  "php": "8.5", "debian": "trixie",   "maho": "26.5.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true },
+  { "tag": "26.7.0-php8.3",  "php": "8.3", "debian": "trixie",   "maho": "26.7.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true, "aliases": ["latest-php8.3"] },
+  { "tag": "26.7.0-php8.4",  "php": "8.4", "debian": "trixie",   "maho": "26.7.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true, "aliases": ["latest-php8.4"] },
+  { "tag": "26.7.0-php8.5",  "php": "8.5", "debian": "trixie",   "maho": "26.7.0",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true, "aliases": ["latest", "latest-php8.5"] },
   { "tag": "nightly",        "php": "8.5", "debian": "trixie",   "maho": "dev-main", "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true }
 ]
