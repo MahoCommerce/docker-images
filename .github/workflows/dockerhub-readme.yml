@@ -26,10 +26,11 @@ jobs:
       - name: Update repository description
         uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
         with:
-          # Must be a real user with Admin on the repo, not the org name that
-          # DOCKER_USER holds — orgs can't authenticate against the Hub API.
+          # Needs a personal PAT of a user with Admin on the repo. DOCKER_PAT is
+          # an org token: it pushes images, but authenticates as the org, which
+          # this API rejects.
           username: fballiano
-          password: ${{ secrets.DOCKER_PAT }}
+          password: ${{ secrets.DOCKERHUB_README_PAT }}
           repository: mahocommerce/maho
           readme-filepath: ./README.md
           # short-description is intentionally not set: passing an empty value
