@@ -24,7 +24,7 @@ docker run -p 80:80 maho-local
 ```
 
 ### Adding a New MahoCommerce Version
-1. Add entries to `versions.json` (one per PHP version)
+1. Add entries to `versions.json` (one per PHP version), including an `eol` date for each (see **Support Lifecycle** below)
 2. If the new version needs a different `composer.json` structure, add a template in `composer_json/`
 3. Commit and push to `main`
 4. Trigger the build workflow manually or wait for the schedule
@@ -58,7 +58,35 @@ Each entry defines a Docker image variant with:
 - `maho`: MahoCommerce version or `dev-main`
 - `composer_json`: which template from `composer_json/` to use
 - `mysql`, `pgsql`, `sqlite`: database support booleans
-- `aliases` (optional): list of tag names to retag onto this image after a successful build (e.g. `["latest", "latest-php8.5"]`). Retag uses `docker buildx imagetools create` — no rebuild, no Build Cloud minutes. An alias can also be passed to the `workflow_dispatch` `tag` input to retag without rebuilding the source.
+- `eol`: last day (`YYYY-MM-DD`) this tag is rebuilt (see **Support Lifecycle** below). Omitted only by `nightly`, which never expires
+- `aliases` (optional): list of tag names to retag onto this image after a successful build (e.g. `["latest", "latest-php8.5"]`). Retag uses `docker buildx imagetools create` — a registry-side manifest copy, no rebuild. An alias can also be passed to the `workflow_dispatch` `tag` input to retag without rebuilding the source.
+
+### Support Lifecycle (`eol`)
+A tag stops being rebuilt when its **runtime** goes EOL: its PHP version or its Debian variant. The Maho version is *not* a criterion: every historical Maho tag keeps getting rebuilt as long as the PHP and Debian underneath it are still supported.
+
+Set `eol` when you add the row. Both upstreams publish their dates years ahead, so it is always knowable up front:
+
+```
+eol = min(PHP security-support end, Debian LTS end)
+```
+
+| PHP | security ends |     | Debian   | LTS ends   |
+|-----|---------------|-----|----------|------------|
+| 8.2 | 2026-12-31    |     | bookworm | 2028-06-30 |
+| 8.3 | 2027-12-31    |     | trixie   | 2030-06-30 |
+| 8.4 | 2028-12-31    |     |          |            |
+| 8.5 | 2029-12-31    |     |          |            |
+
+Behaviour:
+- **`nightly` has no `eol` and never expires.** It tracks `dev-main` on the current PHP and Debian, so it is bumped in place rather than retired. Give it an `eol` and the daily build eventually stops silently.
+- **Scheduled runs and "build all"** skip any tag past its `eol`. Skipped tags are reported as a run annotation and in the job summary.
+- **Tags within 90 days of `eol`** raise a warning annotation, so a tag never drops out of rotation unannounced.
+- **An explicit `workflow_dispatch` tag bypasses the filter**, so an EOL image can still be rebuilt on demand for a critical fix.
+- **EOL tags are never deleted.** They stay pullable on Docker Hub forever; they just stop being refreshed.
+
+Retiring a tag needs no code change; it ages out on its own. Verify these dates against upstream if a distro extends support; Debian LTS windows have shifted before.
+
+Note: there is no `composer.lock` in this repo, so every rebuild re-resolves the whole dependency tree rather than reproducing the previous image. Rebuilding an old tag refreshes its transitive dependencies. That is deliberate, but it means old tags are not byte-reproducible.
 
 ### Composer Templates (`composer_json/`)
 Different MahoCommerce versions need different `composer.json` structures:
@@ -69,12 +97,12 @@ Different MahoCommerce versions need different `composer.json` structures:
 The workflow copies the template and uses `jq` to set the correct Maho version.
 
 ### CI/CD Pipeline (`build.yml`)
-- **Schedule**: Runs at 03:30 UTC daily — builds only `nightly` on weekdays, all tags on Sundays
-- **Manual with tag**: Builds a single specified tag
+- **Schedule**: Runs at 03:30 UTC daily. Builds only `nightly` on most days, all tags on alternating (even-week) Sundays
+- **Manual with tag**: Builds a single specified tag (the only path that bypasses the `eol` filter)
 - **Manual without tag**: Builds all tags
-- **Platform Support**: Multi-arch builds (linux/amd64, linux/arm64)
+- **EOL filter**: Scheduled and build-all runs skip tags past their `eol` date, and warn about tags within 90 days of it
+- **Platform Support**: Multi-arch. Each tag builds once per platform on a native runner (`ubuntu-latest` / `ubuntu-24.04-arm`), then the per-platform digests are merged into one manifest list
 - **Registry**: Images pushed to Docker Hub as `mahocommerce/maho:{tag}`
-- **Builder**: Uses Docker BuildKit cloud builder (`mahocommerce/maho` endpoint)
 
 ### Key Files
 - `versions.json`: Build matrix defining all image variants
@@ -82,6 +110,7 @@ The workflow copies the template and uses `jq` to set the correct Maho version.
 - `composer_json/`: Version-specific composer.json templates
 - `php.ini`: Production-optimized PHP settings
 - `.github/workflows/build.yml`: Single build workflow
+- `.github/workflows/dockerhub-readme.yml`: Mirrors `README.md` to the Docker Hub repository description on every push to `main` that touches it
 
 ## Important Notes
 

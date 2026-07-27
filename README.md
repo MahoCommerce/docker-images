@@ -16,6 +16,21 @@ This image is based on FrankenPHP and is specifically designed for deployment in
 - `25.7.0-php8.4`, `25.7.0-php8.3` -Bookworm, MySQL only
 - `25.5.0-php8.4`, `25.5.0-php8.3`, `25.5.0-php8.2` -Bookworm, MySQL only
 
+## Support lifecycle
+
+Every tag is periodically rebuilt so it picks up PHP and Debian security updates. A tag stops being rebuilt once its **runtime** reaches end of life, whichever comes first: its PHP version or its Debian release.
+
+| PHP | rebuilt until |     | Debian   | rebuilt until |
+|-----|---------------|-----|----------|---------------|
+| 8.2 | 2026-12-31    |     | Bookworm | 2028-06-30    |
+| 8.3 | 2027-12-31    |     | Trixie   | 2030-06-30    |
+| 8.4 | 2028-12-31    |     |          |               |
+| 8.5 | 2029-12-31    |     |          |               |
+
+`nightly` is the exception and never reaches end of life: it always tracks `dev-main` on the current PHP and Debian, and is moved forward in place rather than retired.
+
+Tags that reach end of life are **never deleted**. They remain on Docker Hub and stay pullable indefinitely; they simply stop receiving updates. If you are running one, you are responsible for the unpatched PHP and OS packages inside it, so plan to move to a tag on a supported runtime.
+
 ## Deployment
 
 ### Option 1: start from local development

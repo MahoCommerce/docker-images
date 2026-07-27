@@ -10,35 +10,45 @@ on:
         required: false
         type: string
 
+env:
+  REGISTRY_IMAGE: mahocommerce/maho
+
 jobs:
   load-matrix:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set.outputs.matrix }}
+      build: ${{ steps.set.outputs.build }}
+      merge: ${{ steps.set.outputs.merge }}
       aliases: ${{ steps.set.outputs.aliases }}
+      has_builds: ${{ steps.set.outputs.has_builds }}
+      has_aliases: ${{ steps.set.outputs.has_aliases }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set matrix
         id: set
+        env:
+          # via env, not ${{ }} interpolation, which would be evaluated as shell
+          INPUT_TAG: ${{ inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           requested_alias=""
           alias_source=""
 
-          if [ -n "${{ inputs.tag }}" ]; then
-            matrix=$(jq -c --arg tag "${{ inputs.tag }}" '[.[] | select(.tag == $tag)]' versions.json)
+          if [ -n "$INPUT_TAG" ]; then
+            matrix=$(jq -c --arg tag "$INPUT_TAG" '[.[] | select(.tag == $tag)]' versions.json)
             if [ "$(echo "$matrix" | jq 'length')" = "0" ]; then
               # Not a real tag — maybe an alias
-              alias_source=$(jq -r --arg t "${{ inputs.tag }}" '.[] | select((.aliases // []) | index($t)) | .tag' versions.json)
+              alias_source=$(jq -r --arg t "$INPUT_TAG" '.[] | select((.aliases // []) | index($t)) | .tag' versions.json)
               if [ -z "$alias_source" ]; then
-                echo "Unknown tag or alias: ${{ inputs.tag }}" >&2
+                echo "Unknown tag or alias: $INPUT_TAG" >&2
                 exit 1
               fi
               matrix='[]'
-              requested_alias="${{ inputs.tag }}"
+              requested_alias="$INPUT_TAG"
             fi
-          elif [ "${{ github.event_name }}" = "schedule" ]; then
+          elif [ "$EVENT_NAME" = "schedule" ]; then
             day_of_week=$(date +%u)
             week_number=$(date +%V)
             if [ "$day_of_week" = "7" ] && [ $((week_number % 2)) -eq 0 ]; then
@@ -53,6 +63,32 @@ jobs:
             matrix=$(jq -c '.' versions.json)
           fi
 
+          # Drop tags whose runtime has reached EOL. `eol` is the last day a tag
+          # is rebuilt: the earlier of its PHP and Debian end-of-support dates.
+          # A row without `eol` (nightly) never expires. An explicit
+          # workflow_dispatch tag bypasses this, so an EOL image can still be
+          # rebuilt on demand for a critical fix.
+          if [ -z "$INPUT_TAG" ]; then
+            today=$(date -u +%F)
+            soon=$(date -u -d '+90 days' +%F)
+
+            expired=$(echo "$matrix" | jq -r --arg d "$today" \
+              '[.[] | select(.eol != null and .eol < $d) | "\(.tag) (EOL \(.eol))"] | join(", ")')
+            if [ -n "$expired" ]; then
+              echo "::notice title=EOL tags skipped::$expired"
+              echo "**EOL tags skipped:** $expired" >> "$GITHUB_STEP_SUMMARY"
+            fi
+
+            expiring=$(echo "$matrix" | jq -r --arg d "$today" --arg s "$soon" \
+              '[.[] | select(.eol != null and .eol >= $d and .eol <= $s) | "\(.tag) (EOL \(.eol))"] | join(", ")')
+            if [ -n "$expiring" ]; then
+              echo "::warning title=Tags nearing EOL::$expiring"
+              echo "**Tags nearing EOL:** $expiring" >> "$GITHUB_STEP_SUMMARY"
+            fi
+
+            matrix=$(echo "$matrix" | jq -c --arg d "$today" '[.[] | select(.eol == null or .eol >= $d)]')
+          fi
+
           # Derive aliases to retag: from the build matrix, plus an explicit alias request
           if [ -n "$requested_alias" ]; then
             aliases=$(jq -nc --arg a "$requested_alias" --arg s "$alias_source" '[{alias: $a, source: $s}]')
@@ -60,17 +96,41 @@ jobs:
             aliases=$(echo "$matrix" | jq -c '[.[] | . as $e | (.aliases // [])[] | {alias: ., source: $e.tag}]')
           fi
 
-          echo "matrix={\"include\":$matrix}" >> "$GITHUB_OUTPUT"
-          echo "aliases={\"include\":$aliases}" >> "$GITHUB_OUTPUT"
+          # Each tag builds once per platform on a native runner, then the
+          # per-platform digests are merged into one manifest list.
+          build=$(echo "$matrix" | jq -c '[
+            .[] | del(.aliases, .eol) | . as $e
+            | [{platform: "linux/amd64", runner: "ubuntu-latest"},
+               {platform: "linux/arm64", runner: "ubuntu-24.04-arm"}][]
+            | $e + .
+          ]')
+          merge=$(echo "$matrix" | jq -c '[.[] | {tag}]')
 
-  docker:
-    name: ${{ matrix.tag }}
+          has_builds=$([ "$(echo "$matrix" | jq 'length')" != "0" ] && echo true || echo false)
+          has_aliases=$([ "$(echo "$aliases" | jq 'length')" != "0" ] && echo true || echo false)
+
+          {
+            echo "build={\"include\":$build}"
+            echo "merge={\"include\":$merge}"
+            echo "aliases={\"include\":$aliases}"
+            echo "has_builds=$has_builds"
+            echo "has_aliases=$has_aliases"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.tag }} (${{ matrix.platform }})
     needs: load-matrix
-    runs-on: ubuntu-latest
+    if: ${{ needs.load-matrix.outputs.has_builds == 'true' }}
+    runs-on: ${{ matrix.runner }}
     strategy:
-      matrix: ${{ fromJson(needs.load-matrix.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.load-matrix.outputs.build) }}
       fail-fast: false
     steps:
+      - name: Prepare
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -87,28 +147,83 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
-        with:
-          driver: cloud
-          endpoint: "mahocommerce/maho"
 
-      - name: Build and push
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          tags: "mahocommerce/maho:${{ matrix.tag }}"
+          platforms: ${{ matrix.platform }}
+          tags: ${{ env.REGISTRY_IMAGE }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           build-args: |
             PHP_VERSION=${{ matrix.php }}
             DEBIAN_VARIANT=${{ matrix.debian }}
             MYSQL=${{ matrix.mysql }}
             PGSQL=${{ matrix.pgsql }}
             SQLITE=${{ matrix.sqlite }}
-          outputs: "type=registry"
+          cache-from: type=gha,scope=${{ matrix.tag }}-${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,scope=${{ matrix.tag }}-${{ env.PLATFORM_PAIR }},mode=max
+
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digests-${{ matrix.tag }}-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: ${{ matrix.tag }}
+    needs: [load-matrix, build]
+    if: ${{ always() && needs.load-matrix.outputs.has_builds == 'true' && needs.build.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.load-matrix.outputs.merge) }}
+      fail-fast: false
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ matrix.tag }}-linux-*
+          merge-multiple: true
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PAT }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          # Refuse to publish a partial manifest if a platform build failed
+          count=$(find . -type f | wc -l | tr -d ' ')
+          if [ "$count" -ne 2 ]; then
+            echo "Expected 2 platform digests for ${{ matrix.tag }}, found $count" >&2
+            exit 1
+          fi
+          # shellcheck disable=SC2046 # intentional split: one argument per digest
+          docker buildx imagetools create -t "${REGISTRY_IMAGE}:${{ matrix.tag }}" \
+            $(printf "${REGISTRY_IMAGE}@sha256:%s " *)
+
+      - name: Inspect image
+        run: docker buildx imagetools inspect "${REGISTRY_IMAGE}:${{ matrix.tag }}"
 
   retag:
     name: ${{ matrix.alias }}
-    needs: [load-matrix, docker]
-    if: ${{ always() && needs.docker.result != 'failure' && needs.docker.result != 'cancelled' }}
+    needs: [load-matrix, merge]
+    if: ${{ always() && needs.load-matrix.outputs.has_aliases == 'true' && needs.merge.result != 'failure' && needs.merge.result != 'cancelled' }}
     runs-on: ubuntu-latest
     strategy:
       matrix: ${{ fromJson(needs.load-matrix.outputs.aliases) }}
@@ -121,4 +236,4 @@ jobs:
           password: ${{ secrets.DOCKER_PAT }}
 
       - name: Retag
-        run: docker buildx imagetools create -t mahocommerce/maho:${{ matrix.alias }} mahocommerce/maho:${{ matrix.source }}
+        run: docker buildx imagetools create -t "${REGISTRY_IMAGE}:${{ matrix.alias }}" "${REGISTRY_IMAGE}:${{ matrix.source }}"
