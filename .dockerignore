@@ -1,6 +1,3 @@
-.dockerignore
-.git
-.github
-Dockerfile
-versions.json
-composer_json
+*
+!composer.json
+!php.ini
