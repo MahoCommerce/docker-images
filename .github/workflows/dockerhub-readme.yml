@@ -26,9 +26,9 @@ jobs:
       - name: Update repository description
         uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
         with:
-          username: ${{ secrets.DOCKER_USER }}
-          # Needs a Docker Hub PAT with read/write/delete scope — the plain
-          # read/write token used to push images is not enough for this API.
+          # Must be a real user with Admin on the repo, not the org name that
+          # DOCKER_USER holds — orgs can't authenticate against the Hub API.
+          username: fballiano
           password: ${{ secrets.DOCKER_PAT }}
           repository: mahocommerce/maho
           readme-filepath: ./README.md
