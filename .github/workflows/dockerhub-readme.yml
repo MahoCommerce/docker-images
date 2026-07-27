@@ -1,0 +1,36 @@
+name: Sync Docker Hub README
+
+# Docker Hub does not pull the description from GitHub on its own, so push it
+# whenever README.md changes on main. Content only — the short description is
+# left alone deliberately, see below.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - '.github/workflows/dockerhub-readme.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Push README to Docker Hub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Update repository description
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          # Needs a Docker Hub PAT with read/write/delete scope — the plain
+          # read/write token used to push images is not enough for this API.
+          password: ${{ secrets.DOCKER_PAT }}
+          repository: mahocommerce/maho
+          readme-filepath: ./README.md
+          # short-description is intentionally not set: passing an empty value
+          # would wipe the tagline currently shown on Docker Hub.
