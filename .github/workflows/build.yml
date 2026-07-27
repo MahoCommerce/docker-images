@@ -150,11 +150,24 @@ jobs:
           cp "composer_json/${{ matrix.composer_json }}.json" composer.json
           jq --arg v "${{ matrix.maho }}" '.require["mahocommerce/maho"] = $v' composer.json > tmp && mv tmp composer.json
 
+      # Hand-rolled rather than docker/login-action, which cannot retry.
+      # See "Registry Login" in AGENTS.md.
       - name: Log in to Docker Hub
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PAT }}
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USER }}
+          DOCKER_PAT: ${{ secrets.DOCKER_PAT }}
+        run: |
+          for attempt in 1 2 3; do
+            if printf '%s' "$DOCKER_PAT" | docker login -u "$DOCKER_USER" --password-stdin; then
+              exit 0
+            fi
+            echo "::warning::docker login failed (attempt $attempt/3)"
+            if [ "$attempt" -lt 3 ]; then
+              sleep $((attempt * 10))
+            fi
+          done
+          echo "::error::docker login failed after 3 attempts"
+          exit 1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -212,11 +225,24 @@ jobs:
           pattern: digests-${{ matrix.tag }}-linux-*
           merge-multiple: true
 
+      # Hand-rolled rather than docker/login-action, which cannot retry.
+      # See "Registry Login" in AGENTS.md.
       - name: Log in to Docker Hub
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PAT }}
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USER }}
+          DOCKER_PAT: ${{ secrets.DOCKER_PAT }}
+        run: |
+          for attempt in 1 2 3; do
+            if printf '%s' "$DOCKER_PAT" | docker login -u "$DOCKER_USER" --password-stdin; then
+              exit 0
+            fi
+            echo "::warning::docker login failed (attempt $attempt/3)"
+            if [ "$attempt" -lt 3 ]; then
+              sleep $((attempt * 10))
+            fi
+          done
+          echo "::error::docker login failed after 3 attempts"
+          exit 1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -249,11 +275,24 @@ jobs:
       # `latest` ends up at the very top
       max-parallel: 1
     steps:
+      # Hand-rolled rather than docker/login-action, which cannot retry.
+      # See "Registry Login" in AGENTS.md.
       - name: Log in to Docker Hub
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PAT }}
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USER }}
+          DOCKER_PAT: ${{ secrets.DOCKER_PAT }}
+        run: |
+          for attempt in 1 2 3; do
+            if printf '%s' "$DOCKER_PAT" | docker login -u "$DOCKER_USER" --password-stdin; then
+              exit 0
+            fi
+            echo "::warning::docker login failed (attempt $attempt/3)"
+            if [ "$attempt" -lt 3 ]; then
+              sleep $((attempt * 10))
+            fi
+          done
+          echo "::error::docker login failed after 3 attempts"
+          exit 1
 
       - name: Retag
         run: docker buildx imagetools create -t "${REGISTRY_IMAGE}:${{ matrix.alias }}" "${REGISTRY_IMAGE}:${{ matrix.source }}"

@@ -117,6 +117,13 @@ The cost is about 70s per build job, roughly 90s cold versus 20s warm. The repo 
 
 If you reintroduce caching for local iteration, keep it out of the workflow.
 
+### Registry Login
+All three jobs log into Docker Hub with an inline `docker login --password-stdin` loop, not `docker/login-action`. The action has no retry, and `registry-1.docker.io` occasionally times out the login handshake (`Client.Timeout exceeded while awaiting headers`).
+
+That single flaky call is expensive out of proportion to itself: a failed login fails one platform build, its `merge` then refuses to publish a one-platform manifest, and `retag` is gated on `needs.merge.result != 'failure'` — so **every alias, `latest` included, is skipped for the entire run**. The loop retries three times with 10s and 20s backoff.
+
+The tradeoff is losing the action's post-job `docker logout`. That only mattered on self-hosted runners; these are ephemeral GitHub-hosted VMs discarded after the job. Credentials still reach `docker` via stdin, never argv.
+
 ### Tag Push Order
 Docker Hub's tag list is sorted by last-pushed and cannot be reordered from the repo settings, so the only lever is the order in which the workflow pushes.
 
