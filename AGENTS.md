@@ -86,7 +86,7 @@ Behaviour:
 
 Retiring a tag needs no code change; it ages out on its own. Verify these dates against upstream if a distro extends support; Debian LTS windows have shifted before.
 
-Note: there is no `composer.lock` in this repo, so every rebuild re-resolves the whole dependency tree rather than reproducing the previous image. Rebuilding an old tag refreshes its transitive dependencies. That is deliberate, but it means old tags are not byte-reproducible.
+Note: there is no `composer.lock` in this repo, so every rebuild re-resolves the whole dependency tree rather than reproducing the previous image. Rebuilding an old tag refreshes its transitive dependencies. That is deliberate, but it means old tags are not byte-reproducible. It also only holds because the workflow builds without a layer cache; see **Build Cache** below.
 
 ### Composer Templates (`composer_json/`)
 Different MahoCommerce versions need different `composer.json` structures:
@@ -103,6 +103,30 @@ The workflow copies the template and uses `jq` to set the correct Maho version.
 - **EOL filter**: Scheduled and build-all runs skip tags past their `eol` date, and warn about tags within 90 days of it
 - **Platform Support**: Multi-arch. Each tag builds once per platform on a native runner (`ubuntu-latest` / `ubuntu-24.04-arm`), then the per-platform digests are merged into one manifest list
 - **Registry**: Images pushed to Docker Hub as `mahocommerce/maho:{tag}`
+- **Push order**: Docker Hub lists tags by last-pushed, so the workflow pushes oldest-first to keep the newest tags at the top of the repository page (see below)
+- **Build cache**: none, deliberately (see below)
+
+### Build Cache
+The `build` job passes `no-cache: true` and exports no cache. Every build runs `install-php-extensions`, `apt-get upgrade` and `composer install` from scratch.
+
+This is not an oversight to be optimised away. A rebuild exists to refresh what is *outside* the repo, namely Debian security updates and the re-resolved Composer tree, and a layer cache freezes exactly those. With `type=gha` caching the daily `nightly` build was a complete cache hit whenever the `dunglas/frankenphp` base digest was unchanged: `apt-get upgrade` never ran, `composer install` never ran (the `dev-main` constraint is a literal string, so its layer key never changes), and the run re-pushed a byte-identical image while appearing to succeed.
+
+Because the extension/apt step sits near the top of the layer chain, busting it invalidates everything below it. There is no useful middle ground: cache that step and the rebuild is a lie, skip it and nothing else is cacheable either.
+
+The cost is about 70s per build job, roughly 90s cold versus 20s warm. The repo is public, so Actions minutes are free; the only real cost is ~6 minutes of extra wall-clock on the biweekly full matrix. In exchange the GitHub Actions cache quota, which the old scopes had driven to 6.3 GB of 10 GB across 589 entries, stays empty.
+
+If you reintroduce caching for local iteration, keep it out of the workflow.
+
+### Tag Push Order
+Docker Hub's tag list is sorted by last-pushed and cannot be reordered from the repo settings, so the only lever is the order in which the workflow pushes.
+
+The matrix is sorted in `load-matrix` by Maho version, then PHP version, both compared **numerically** per component, so `25.11.0` sorts after `25.9.0` where a plain string sort gets it wrong. `dev-main` (nightly) sorts after every release. The `merge` and `retag` jobs then run with `max-parallel: 1`, so tags are created in that order rather than racing; without it the parallel matrix would push in arbitrary order and the page would shuffle on every full rebuild.
+
+Aliases are retagged after all real tags, and each row's aliases are reverse-sorted so the barest name is pushed last, putting `latest` above `latest-php8.5` at the very top of the page.
+
+The ordering in `versions.json` itself is therefore cosmetic; the workflow sorts regardless. Keeping the file in ascending order is still nice for reading diffs.
+
+Note the cost: serialising the merge job means ~25 sequential runners on a full rebuild instead of a parallel fan-out. Each is cheap (download digests, `imagetools create`, inspect, no build) and it only affects the biweekly full run, but it does add roughly 20 minutes of wall-clock to the tail of that run. The per-platform `build` jobs stay fully parallel; they push by digest, untagged, so their order does not matter.
 
 ### Key Files
 - `versions.json`: Build matrix defining all image variants

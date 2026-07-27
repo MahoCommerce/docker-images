@@ -89,11 +89,22 @@ jobs:
             matrix=$(echo "$matrix" | jq -c --arg d "$today" '[.[] | select(.eol == null or .eol >= $d)]')
           fi
 
-          # Derive aliases to retag: from the build matrix, plus an explicit alias request
+          # Order the matrix oldest-first, by Maho version then PHP version.
+          # Docker Hub lists tags by last-pushed, so pushing in ascending order
+          # leaves the newest combinations at the top of the repository page.
+          # `dev-main` (nightly) sorts after every release. The merge and retag
+          # jobs run one at a time to preserve this order; see max-parallel below.
+          matrix=$(echo "$matrix" | jq -c '
+            def vkey: if . == "dev-main" then [99999999] else (split(".") | map(tonumber)) end;
+            sort_by([(.maho | vkey), (.php | vkey)])')
+
+          # Derive aliases to retag: from the build matrix, plus an explicit alias request.
+          # Aliases within a row are reversed so the barest name ("latest") is
+          # pushed last, landing above its more specific siblings ("latest-php8.5").
           if [ -n "$requested_alias" ]; then
             aliases=$(jq -nc --arg a "$requested_alias" --arg s "$alias_source" '[{alias: $a, source: $s}]')
           else
-            aliases=$(echo "$matrix" | jq -c '[.[] | . as $e | (.aliases // [])[] | {alias: ., source: $e.tag}]')
+            aliases=$(echo "$matrix" | jq -c '[.[] | . as $e | ((.aliases // []) | sort | reverse)[] | {alias: ., source: $e.tag}]')
           fi
 
           # Each tag builds once per platform on a native runner, then the
@@ -162,8 +173,11 @@ jobs:
             MYSQL=${{ matrix.mysql }}
             PGSQL=${{ matrix.pgsql }}
             SQLITE=${{ matrix.sqlite }}
-          cache-from: type=gha,scope=${{ matrix.tag }}-${{ env.PLATFORM_PAIR }}
-          cache-to: type=gha,scope=${{ matrix.tag }}-${{ env.PLATFORM_PAIR }},mode=max
+          # No layer cache on purpose. `apt-get upgrade` and `composer install`
+          # must run on every build, since that refresh is the whole point of the
+          # scheduled rebuild, and they sit at the top of the layer chain, so
+          # nothing below them is cacheable either. See "Build Cache" in AGENTS.md.
+          no-cache: true
 
       - name: Export digest
         run: |
@@ -187,6 +201,9 @@ jobs:
     strategy:
       matrix: ${{ fromJson(needs.load-matrix.outputs.merge) }}
       fail-fast: false
+      # One at a time, so tags are pushed in matrix order (oldest first) and
+      # Docker Hub's last-pushed ordering puts the newest tags on top
+      max-parallel: 1
     steps:
       - name: Download digests
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -228,6 +245,9 @@ jobs:
     strategy:
       matrix: ${{ fromJson(needs.load-matrix.outputs.aliases) }}
       fail-fast: false
+      # As above: aliases are retagged in order, and after every real tag, so
+      # `latest` ends up at the very top
+      max-parallel: 1
     steps:
       - name: Log in to Docker Hub
         uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
