@@ -34,10 +34,11 @@ RUN set -eux; \
 #Uncomment the next lines if you want libvips image processing to work
 # RUN install-php-extensions ffi vips
 
-COPY . /app
 COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
-COPY php.ini $PHP_INI_DIR/php.ini
 
-RUN rm -rf php.ini
+# composer.json alone first, so unrelated file changes don't bust this layer
+COPY composer.json /app/
 RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --optimize-autoloader --prefer-dist --no-interaction --no-progress --no-dev --no-cache \
   && rm -rf /root/.composer/cache
+
+COPY php.ini $PHP_INI_DIR/php.ini
