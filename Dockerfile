@@ -42,3 +42,21 @@ RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --optimize-autoloader --prefer-d
   && rm -rf /root/.composer/cache
 
 COPY php.ini $PHP_INI_DIR/php.ini
+
+# The Maho site block: /api/* routing, file access rules, security headers.
+# Selected from caddyfiles/ by the workflow, the same way composer.json is.
+# An empty file means "keep the Caddyfile of the base image", which is what the
+# rows of versions.json before Maho 26.7 ask for. COPY cannot be skipped, so the
+# emptiness test does the skipping.
+#
+# The base image runs --config /etc/frankenphp/Caddyfile, which it hard-links to
+# /etc/caddy/Caddyfile. Copying over /etc/caddy/Caddyfile breaks that link, so
+# the link is re-created; without that the container keeps serving the base
+# image's Caddyfile and the copy is a silent no-op.
+COPY Caddyfile /tmp/maho.Caddyfile
+RUN set -eux; \
+  if [ -s /tmp/maho.Caddyfile ]; then \
+    cp /tmp/maho.Caddyfile /etc/caddy/Caddyfile; \
+    ln -f /etc/caddy/Caddyfile /etc/frankenphp/Caddyfile; \
+  fi; \
+  rm -f /tmp/maho.Caddyfile

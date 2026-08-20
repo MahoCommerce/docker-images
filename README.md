@@ -110,6 +110,25 @@ docker exec -it maho ./maho index:reindex:all
 docker exec -it maho ./maho cache:flush
 ```
 
+## Web server configuration
+
+Tags for **Maho 26.7 and later** (`latest` and `nightly` included) ship a Maho site block at `/etc/caddy/Caddyfile` (hard-linked to `/etc/frankenphp/Caddyfile`, which is the path the container actually runs). It does four things that the plain `dunglas/frankenphp` Caddyfile does not:
+
+- routes `/api/*` to the correct entry point (`rest.php`, `api.php` or `index.php`, depending on the path)
+- denies access to hidden files, with exceptions for `/.well-known/` and `/.thumbs/`
+- denies access to backup, log and configuration files
+- answers `405` to `TRACE` and `TRACK`, and sets `X-Content-Type-Options: nosniff`
+
+Without the `/api/*` routing the storefront works and every API call returns the storefront 404 page, so do not drop these rules.
+
+To add directives without replacing the file, set the `CADDY_SERVER_EXTRA_DIRECTIVES` environment variable. To replace it, mount your own file over `/etc/frankenphp/Caddyfile`.
+
+Do **not** add CORS headers or an `OPTIONS` preflight response to the web server. Maho answers both inside the API kernel. Set the allowed origins in **System > Configuration > Services > API > CORS Allowed Origins**.
+
+Older tags keep the base FrankenPHP site block, because Maho before 26.7 has no `rest.php` entry point to route to.
+
+Full reference: [mahocommerce.com/hosting/web-server](https://mahocommerce.com/hosting/web-server/).
+
 ## Customizing the platform
 
 We all know an ecommerce project needs addon modules and custom development, thus, most probably, you won't be able to use this image as is. Our suggestion is to import it in your project repository and build your own on top of it. This way you'll take advantage of the official developments/support/updates, with the power of your custom implementations.

@@ -26,8 +26,9 @@ docker run -p 80:80 maho-local
 ### Adding a New MahoCommerce Version
 1. Add entries to `versions.json` (one per PHP version), including an `eol` date for each (see **Support Lifecycle** below)
 2. If the new version needs a different `composer.json` structure, add a template in `composer_json/`
-3. Commit and push to `main`
-4. Trigger the build workflow manually or wait for the schedule
+3. If the new version needs different web server rules, add a template in `caddyfiles/` and point the new rows at it; otherwise reuse the newest existing one
+4. Commit and push to `main`
+5. Trigger the build workflow manually or wait for the schedule
 
 ### Testing Changes
 ```bash
@@ -48,6 +49,7 @@ composer show
 - **Build Args**: `PHP_VERSION`, `DEBIAN_VARIANT`, `MYSQL`, `PGSQL`, `SQLITE`
 - **User**: `maho` (UID/GID 1000) — non-root user for security
 - **PHP Extensions**: Base set always installed, database extensions conditionally added
+- **Caddyfile**: selected from `caddyfiles/` per row, the same way `composer.json` is selected from `composer_json/` (see **Caddyfile Templates** below) It adds the `/api/*` routing, the hidden/private file rules, and the security headers, none of which the `dunglas/frankenphp` default has. It must stay in sync with Maho's own `public/.htaccess`, which is the reference implementation, and with the docs page at `mahocommerce.com/hosting/web-server`. Two traps: Caddy sorts directives by type, so the interdependent rewrites live inside a `route` block; and the base image runs `--config /etc/frankenphp/Caddyfile`, a hard link to `/etc/caddy/Caddyfile`, so the `COPY` is followed by `ln -f` to re-create the link. Without that `ln`, the copy is a silent no-op at runtime.
 - **Composer**: Installed at build time, `composer.json` selected from `composer_json/` templates
 
 ### Build Matrix (`versions.json`)
@@ -58,6 +60,7 @@ Each entry defines a Docker image variant with:
 - `maho`: MahoCommerce version or `dev-main`
 - `composer_json`: which template from `composer_json/` to use
 - `mysql`, `pgsql`, `sqlite`: database support booleans
+- `caddyfile`: which template from `caddyfiles/` to use, or `null` to keep the Caddyfile of the base image
 - `eol`: last day (`YYYY-MM-DD`) this tag is rebuilt (see **Support Lifecycle** below). Omitted only by `nightly`, which never expires
 - `aliases` (optional): list of tag names to retag onto this image after a successful build (e.g. `["latest", "latest-php8.5"]`). Retag uses `docker buildx imagetools create` — a registry-side manifest copy, no rebuild. An alias can also be passed to the `workflow_dispatch` `tag` input to retag without rebuilding the source.
 
@@ -95,6 +98,21 @@ Different MahoCommerce versions need different `composer.json` structures:
 - `25.11.json`: Clean, minimal (used by 25.11+, 26.x, latest, nightly)
 
 The workflow copies the template and uses `jq` to set the correct Maho version.
+
+### Caddyfile Templates (`caddyfiles/`)
+The base `dunglas/frankenphp` Caddyfile serves a plain PHP application. It has no `/api/*` routing and no file access rules, so on a Maho store every API path lands on `index.php` and the legacy `Mage_Api` router fails there, while the storefront looks healthy. Hidden files such as `public/.htaccess` are also served.
+
+`caddyfiles/` holds one template per Maho routing generation, selected by the `caddyfile` field of each `versions.json` row:
+- `26.7.caddyfile`: Maho 26.7+, which introduced the API Platform entry point `public/rest.php`
+- `null` on a row: keep the base image's Caddyfile. This is what every pre-26.7 tag uses, because those versions have no `rest.php` to route to. Freezing a copy of the upstream file for them would only make it drift.
+
+The workflow's **Set Caddyfile** step copies the template to `./Caddyfile`, or truncates that file to zero bytes for a `null` row. `COPY` cannot be skipped, so the Dockerfile installs the file only when it is non-empty. The `Caddyfile` committed at the repo root is the local-development default, exactly like the committed `composer.json`.
+
+Two traps in the template itself:
+- Caddy sorts directives by type, not by source order, so the interdependent rewrites live inside a `route` block.
+- The base image runs `--config /etc/frankenphp/Caddyfile`, a hard link to `/etc/caddy/Caddyfile`. `COPY`/`cp` breaks that link, so the install is followed by `ln -f`. Without it the copy is a silent no-op at runtime.
+
+The template must stay in sync with Maho's own `public/.htaccess`, which is the reference implementation, and with the docs page at `mahocommerce.com/hosting/web-server`.
 
 ### CI/CD Pipeline (`build.yml`)
 - **Schedule**: Runs at 03:30 UTC daily. Builds only `nightly` on most days, all tags on alternating (even-week) Sundays
@@ -140,6 +158,8 @@ Note the cost: serialising the merge job means ~25 sequential runners on a full 
 - `Dockerfile`: Parameterized image build instructions
 - `composer_json/`: Version-specific composer.json templates
 - `php.ini`: Production-optimized PHP settings
+- `caddyfiles/`: Maho site block templates, one per routing generation
+- `Caddyfile`: materialized site block used by the build; the committed copy is the local-development default
 - `.github/workflows/build.yml`: Single build workflow
 - `.github/workflows/dockerhub-readme.yml`: Mirrors `README.md` to the Docker Hub repository description on every push to `main` that touches it
 

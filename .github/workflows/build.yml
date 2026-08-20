@@ -150,6 +150,19 @@ jobs:
           cp "composer_json/${{ matrix.composer_json }}.json" composer.json
           jq --arg v "${{ matrix.maho }}" '.require["mahocommerce/maho"] = $v' composer.json > tmp && mv tmp composer.json
 
+      # A row with a null `caddyfile` keeps the Caddyfile of the base image.
+      # The Dockerfile installs the file only when it is non-empty, so an empty
+      # file is how "no Maho site block" is expressed.
+      - name: Set Caddyfile
+        env:
+          CADDYFILE: ${{ matrix.caddyfile }}
+        run: |
+          if [ -n "$CADDYFILE" ]; then
+            cp "caddyfiles/$CADDYFILE.caddyfile" Caddyfile
+          else
+            : > Caddyfile
+          fi
+
       # Hand-rolled rather than docker/login-action, which cannot retry.
       # See "Registry Login" in AGENTS.md.
       - name: Log in to Docker Hub
