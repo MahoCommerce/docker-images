@@ -109,12 +109,24 @@ jobs:
 
           # Each tag builds once per platform on a native runner, then the
           # per-platform digests are merged into one manifest list.
-          build=$(echo "$matrix" | jq -c '[
-            .[] | del(.aliases, .eol) | . as $e
-            | [{platform: "linux/amd64", runner: "ubuntu-latest"},
-               {platform: "linux/arm64", runner: "ubuntu-24.04-arm"}][]
-            | $e + .
-          ]')
+          #
+          # `test` decides whether the image test runs on a row. The test
+          # installs Maho through the web wizard, and that wizard is broken in
+          # every release before 26.7.5 (MahoCommerce/maho#1310), so older rows
+          # are built and published but not tested. Testing them would fail
+          # their merge and skip every alias, `latest` included. The threshold
+          # is a version compare rather than a list, so 26.7.5 starts being
+          # tested the day its rows are added, with no change here.
+          build=$(echo "$matrix" | jq -c '
+            def vkey: if . == "dev-main" then [99999999] else (split(".") | map(tonumber)) end;
+            [
+              .[] | del(.aliases, .eol)
+              | . + {test: (.caddyfile != null and ((.maho | vkey) >= ("26.7.5" | vkey)))}
+              | . as $e
+              | [{platform: "linux/amd64", runner: "ubuntu-latest"},
+                 {platform: "linux/arm64", runner: "ubuntu-24.04-arm"}][]
+              | $e + .
+            ]')
           merge=$(echo "$matrix" | jq -c '[.[] | {tag}]')
 
           has_builds=$([ "$(echo "$matrix" | jq 'length')" != "0" ] && echo true || echo false)
@@ -200,6 +212,28 @@ jobs:
       # Only rows with a `caddyfile` are covered. A row without one keeps the
       # base image Caddyfile and has no public/rest.php, so it would fail the
       # routing assertions by design. See "Image Test" in AGENTS.md.
+      # `test` is set in load-matrix: a Maho version whose web wizard works.
+      - name: Test image
+        if: ${{ matrix.test }}
+        env:
+          MAHO_VERSION: ${{ matrix.maho }}
+          MYSQL: ${{ matrix.mysql }}
+          PGSQL: ${{ matrix.pgsql }}
+          SQLITE: ${{ matrix.sqlite }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: ./tests/image.sh "${REGISTRY_IMAGE}@${DIGEST}"
+
+      # A browser failure is hard to read from a log alone. The screenshot and
+      # the page source of the step that failed say more than the stack trace.
+      - name: Upload test artifacts
+        if: ${{ failure() && matrix.test }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-artifacts-${{ matrix.tag }}-${{ env.PLATFORM_PAIR }}
+          path: test-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Export digest
         run: |
           mkdir -p "${{ runner.temp }}/digests"

@@ -154,6 +154,60 @@ Two traps in the template itself:
 
 The template must stay in sync with Maho's own `public/.htaccess`, which is the reference implementation, and with the docs page at `mahocommerce.com/hosting/web-server`.
 
+### Image Test (`tests/`)
+`tests/image.sh` runs against a built image and checks what a build cannot: that
+PHP boots the application, that the wizard a PaaS user meets actually works, and
+that the Caddyfile in `config/caddyfile/` is the one serving requests.
+
+It installs Maho **through the web wizard, in a real browser**, against SQLite,
+so it needs no database service. The wizard cannot be driven by form posts: its
+Continue button ships `disabled` and only `installer.js` enables it, and the
+database step disables the inputs of every engine form that is not selected. A
+browser also enforces the `type="module"` MIME type on that script, which a
+status code cannot show. `tests/web-install.js` drives the five steps with
+Playwright, pinned to an exact version because this test gates every alias.
+
+Maho tests its own application with Playwright too, but against its dev server,
+so nobody else drives the wizard on this image with FrankenPHP and this
+Caddyfile in front of it. README option 2 tells PaaS users that this is how they
+install. That gap is the reason this test exists, and it found
+MahoCommerce/maho#1310 on its first run.
+
+After installing it checks the file access rules, then enables the `rest_v2` and
+`soap` protocols with `config:set` and checks the `/api/*` routing. Every API
+protocol is opt-in and answers 404 when off, so without enabling them a routing
+rule cannot be told apart from a disabled protocol.
+
+Two things to know when editing it:
+- Assert against directives, not comments. An earlier check grepped the
+  Caddyfile for a comment string and broke when the comment was reworded, on an
+  image that was perfectly correct.
+- Read `php -m` once into a variable. Piping it into `grep -q` fails at random
+  under `set -o pipefail`: grep exits at the first match, `docker exec` dies of
+  SIGPIPE, and the pipeline reports 141.
+
+The workflow runs it in the `build` job, on the native runner, against the
+digest just pushed, so both architectures are covered. A failure fails the job,
+which fails `merge`, which skips `retag` — a broken image can never become
+`latest`.
+
+Which rows get tested is decided by `test`, computed in `load-matrix`:
+
+```
+test = caddyfile != null  and  maho >= 26.7.5
+```
+
+The web wizard is broken in every Maho before 26.7.5
+(MahoCommerce/maho#1310, fixed on main by #1311), so those rows are still built
+and published, but not tested. Testing them would fail their merge and skip
+every alias. The threshold is a numeric version compare, not a list of tags, so
+26.7.5 starts being tested the day its rows are added and nothing here needs
+editing — the same idea as `eol` retiring a tag on its own. Today one row
+qualifies, `nightly`.
+
+Run it locally with `./tests/image.sh <image>`; it needs docker, curl, jq, node
+and npm.
+
 ### CI/CD Pipeline (`build.yml`)
 - **Schedule**: Runs at 03:30 UTC daily. Builds only `nightly` on most days, all tags on alternating (even-week) Sundays
 - **Manual with tag**: Builds a single specified tag (the only path that bypasses the `eol` filter)
