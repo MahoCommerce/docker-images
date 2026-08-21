@@ -10,11 +10,13 @@ This repository builds Docker images for MahoCommerce using FrankenPHP. All imag
 
 ### Local Docker Build
 ```bash
-# Build with default args (latest nightly config)
+# Build with default args (newest generation: current composer template,
+# current Caddyfile, dev-main)
 docker build -t maho-local .
 
 # Build a specific variant
-docker build --build-arg PHP_VERSION=8.4 --build-arg DEBIAN_VARIANT=bookworm --build-arg PGSQL=false --build-arg SQLITE=false -t maho-local .
+docker build --build-arg PHP_VERSION=8.4 --build-arg DEBIAN_VARIANT=bookworm --build-arg PGSQL=false --build-arg SQLITE=false \
+  --build-arg COMPOSER_TEMPLATE=25.5 --build-arg CADDYFILE=none --build-arg MAHO_VERSION=25.5.0 -t maho-local .
 
 # Build with specific platform
 docker buildx build --platform linux/amd64 -t maho-local .
@@ -25,8 +27,8 @@ docker run -p 80:80 maho-local
 
 ### Adding a New MahoCommerce Version
 1. Add entries to `versions.json` (one per PHP version), including an `eol` date for each (see **Support Lifecycle** below)
-2. If the new version needs a different `composer.json` structure, add a template in `composer_json/`
-3. If the new version needs different web server rules, add a template in `caddyfiles/` and point the new rows at it; otherwise reuse the newest existing one
+2. If the new version needs a different `composer.json` structure, add a template in `config/composer/`
+3. If the new version needs different web server rules, add a template in `config/caddyfile/` and point the new rows at it; otherwise reuse the newest existing one
 4. Commit and push to `main`
 5. Trigger the build workflow manually or wait for the schedule
 
@@ -46,11 +48,11 @@ composer show
 
 ### Docker Setup
 - **Base Image**: `dunglas/frankenphp:php{version}-{debian}` — parameterized via build args
-- **Build Args**: `PHP_VERSION`, `DEBIAN_VARIANT`, `MYSQL`, `PGSQL`, `SQLITE`
+- **Build Args**: `PHP_VERSION`, `DEBIAN_VARIANT`, `MYSQL`, `PGSQL`, `SQLITE`, `COMPOSER_TEMPLATE`, `CADDYFILE`, `MAHO_VERSION`
 - **User**: `maho` (UID/GID 1000) — non-root user for security
 - **PHP Extensions**: Base set always installed, database extensions conditionally added
-- **Caddyfile**: selected from `caddyfiles/` per row, the same way `composer.json` is selected from `composer_json/` (see **Caddyfile Templates** below) It adds the `/api/*` routing, the hidden/private file rules, and the security headers, none of which the `dunglas/frankenphp` default has. It must stay in sync with Maho's own `public/.htaccess`, which is the reference implementation, and with the docs page at `mahocommerce.com/hosting/web-server`. Two traps: Caddy sorts directives by type, so the interdependent rewrites live inside a `route` block; and the base image runs `--config /etc/frankenphp/Caddyfile`, a hard link to `/etc/caddy/Caddyfile`, so the `COPY` is followed by `ln -f` to re-create the link. Without that `ln`, the copy is a silent no-op at runtime.
-- **Composer**: Installed at build time, `composer.json` selected from `composer_json/` templates
+- **Caddyfile**: selected from `config/caddyfile/` per row, the same way `composer.json` is selected from `config/composer/` (see **Caddyfile Templates** below) It adds the `/api/*` routing, the hidden/private file rules, and the security headers, none of which the `dunglas/frankenphp` default has. It must stay in sync with Maho's own `public/.htaccess`, which is the reference implementation, and with the docs page at `mahocommerce.com/hosting/web-server`. Two traps: Caddy sorts directives by type, so the interdependent rewrites live inside a `route` block; and the base image runs `--config /etc/frankenphp/Caddyfile`, a hard link to `/etc/caddy/Caddyfile`, so the `COPY` is followed by `ln -f` to re-create the link. Without that `ln`, the copy is a silent no-op at runtime.
+- **Composer**: Installed at build time, `composer.json` selected from `config/composer/` templates
 
 ### Build Matrix (`versions.json`)
 Each entry defines a Docker image variant with:
@@ -58,11 +60,49 @@ Each entry defines a Docker image variant with:
 - `php`: PHP version
 - `debian`: Debian variant (`bookworm` or `trixie`)
 - `maho`: MahoCommerce version or `dev-main`
-- `composer_json`: which template from `composer_json/` to use
+- `composer_json`: which template from `config/composer/` to use
 - `mysql`, `pgsql`, `sqlite`: database support booleans
-- `caddyfile`: which template from `caddyfiles/` to use, or `null` to keep the Caddyfile of the base image
+- `caddyfile`: which template from `config/caddyfile/` to use, or `null` to keep the Caddyfile of the base image
 - `eol`: last day (`YYYY-MM-DD`) this tag is rebuilt (see **Support Lifecycle** below). Omitted only by `nightly`, which never expires
 - `aliases` (optional): list of tag names to retag onto this image after a successful build (e.g. `["latest", "latest-php8.5"]`). Retag uses `docker buildx imagetools create` — a registry-side manifest copy, no rebuild. An alias can also be passed to the `workflow_dispatch` `tag` input to retag without rebuilding the source.
+
+Nothing is materialized at the repository root. `COPY` expands build args in its
+source path, so the Dockerfile reads the files straight out of `config/`:
+
+```dockerfile
+COPY config/composer/${COMPOSER_TEMPLATE}.json /app/composer.json
+COPY config/caddyfile/${CADDYFILE}.caddyfile /tmp/maho.Caddyfile
+```
+
+There is no lookup rule to simulate. A field names a file:
+
+| field | file |
+|---|---|
+| `composer_json` | `config/composer/<value>.json` |
+| `caddyfile` | `config/caddyfile/<value>.caddyfile` |
+
+The build arg is `COMPOSER_TEMPLATE`, not `COMPOSER`, because Composer reads
+`$COMPOSER` as the name of its manifest file and would open `25.11` instead of
+`composer.json`.
+
+The Caddyfile is the exception to that direct `COPY`. Its selection is optional,
+`COPY` cannot be skipped, and there is no conditional form, so the Dockerfile
+copies the whole `config/caddyfile/` directory and picks inside a `RUN`. A null
+`caddyfile` arrives as an empty `CADDYFILE`, which installs nothing and leaves
+the base image with its own Caddyfile.
+
+Every generation of a template is a peer in one directory, so the history reads
+top to bottom and the newest is the last one. Sort with `sort -V`, not plain
+`ls`, or `25.11` comes before `25.5`.
+
+The two kinds change at different Maho versions and are chosen independently,
+which is why they are separate directories rather than one directory per
+version. A version directory could never be complete: 26.7 changed the Caddyfile
+but still uses the `composer.json` written for 25.11. To see what a tag uses:
+
+```bash
+jq -r '.[] | select(.tag=="26.7.3-php8.5") | {composer_json, caddyfile}' versions.json
+```
 
 ### Support Lifecycle (`eol`)
 A tag stops being rebuilt when its **runtime** goes EOL: its PHP version or its Debian variant. The Maho version is *not* a criterion: every historical Maho tag keeps getting rebuilt as long as the PHP and Debian underneath it are still supported.
@@ -91,18 +131,18 @@ Retiring a tag needs no code change; it ages out on its own. Verify these dates 
 
 Note: there is no `composer.lock` in this repo, so every rebuild re-resolves the whole dependency tree rather than reproducing the previous image. Rebuilding an old tag refreshes its transitive dependencies. That is deliberate, but it means old tags are not byte-reproducible. It also only holds because the workflow builds without a layer cache; see **Build Cache** below.
 
-### Composer Templates (`composer_json/`)
+### Composer Templates (`config/composer/`)
 Different MahoCommerce versions need different `composer.json` structures:
 - `25.5.json`: Legacy with tinymce deps, composer-patches, CVE audit ignore
 - `25.7.json`: With composer-patches and enable-patching (used by 25.7, 25.9)
 - `25.11.json`: Clean, minimal (used by 25.11+, 26.x, latest, nightly)
 
-The workflow copies the template and uses `jq` to set the correct Maho version.
+The Dockerfile copies the template and replaces the `VERSION` placeholder in `require` with the `MAHO_VERSION` build arg.
 
-### Caddyfile Templates (`caddyfiles/`)
+### Caddyfile Templates (`config/caddyfile/`)
 The base `dunglas/frankenphp` Caddyfile serves a plain PHP application. It has no `/api/*` routing and no file access rules, so on a Maho store every API path lands on `index.php` and the legacy `Mage_Api` router fails there, while the storefront looks healthy. Hidden files such as `public/.htaccess` are also served.
 
-`caddyfiles/` holds one template per Maho routing generation, selected by the `caddyfile` field of each `versions.json` row:
+`config/caddyfile/` holds one template per Maho routing generation, selected by the `caddyfile` field of each `versions.json` row:
 - `26.7.caddyfile`: Maho 26.7+, which introduced the API Platform entry point `public/rest.php`
 - `null` on a row: keep the base image's Caddyfile. This is what every pre-26.7 tag uses, because those versions have no `rest.php` to route to. Freezing a copy of the upstream file for them would only make it drift.
 
@@ -156,10 +196,9 @@ Note the cost: serialising the merge job means ~25 sequential runners on a full 
 ### Key Files
 - `versions.json`: Build matrix defining all image variants
 - `Dockerfile`: Parameterized image build instructions
-- `composer_json/`: Version-specific composer.json templates
-- `php.ini`: Production-optimized PHP settings
-- `caddyfiles/`: Maho site block templates, one per routing generation
-- `Caddyfile`: materialized site block used by the build; the committed copy is the local-development default
+- `config/composer/`: Version-specific composer.json templates
+- `config/php.ini`: Production-optimized PHP settings
+- `config/caddyfile/`: Maho site block templates, one per routing generation
 - `.github/workflows/build.yml`: Single build workflow
 - `.github/workflows/dockerhub-readme.yml`: Mirrors `README.md` to the Docker Hub repository description on every push to `main` that touches it
 
@@ -167,5 +206,5 @@ Note the cost: serialising the merge job means ~25 sequential runners on a full 
 
 - Never commit secrets or credentials
 - The `.idea/` directory is untracked (IDE settings)
-- `.dockerignore` excludes build-only files (`versions.json`, `composer_json/`, etc.) from the Docker context
+- `.dockerignore` admits only `config/`; everything else (`versions.json`, `tests/`, docs) stays out of the build context
 - All development happens on the `main` branch — no per-version branches needed

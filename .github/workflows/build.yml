@@ -145,24 +145,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set composer.json
-        run: |
-          cp "composer_json/${{ matrix.composer_json }}.json" composer.json
-          jq --arg v "${{ matrix.maho }}" '.require["mahocommerce/maho"] = $v' composer.json > tmp && mv tmp composer.json
-
-      # A row with a null `caddyfile` keeps the Caddyfile of the base image.
-      # The Dockerfile installs the file only when it is non-empty, so an empty
-      # file is how "no Maho site block" is expressed.
-      - name: Set Caddyfile
-        env:
-          CADDYFILE: ${{ matrix.caddyfile }}
-        run: |
-          if [ -n "$CADDYFILE" ]; then
-            cp "caddyfiles/$CADDYFILE.caddyfile" Caddyfile
-          else
-            : > Caddyfile
-          fi
-
       # Hand-rolled rather than docker/login-action, which cannot retry.
       # See "Registry Login" in AGENTS.md.
       - name: Log in to Docker Hub
@@ -193,18 +175,31 @@ jobs:
           platforms: ${{ matrix.platform }}
           tags: ${{ env.REGISTRY_IMAGE }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          # Every value is a build arg; the Dockerfile reads the files from
+          # config/ itself. A null `caddyfile` arrives as an empty string, which
+          # is how a row keeps the Caddyfile of the base image.
           build-args: |
             PHP_VERSION=${{ matrix.php }}
             DEBIAN_VARIANT=${{ matrix.debian }}
             MYSQL=${{ matrix.mysql }}
             PGSQL=${{ matrix.pgsql }}
             SQLITE=${{ matrix.sqlite }}
+            COMPOSER_TEMPLATE=${{ matrix.composer_json }}
+            MAHO_VERSION=${{ matrix.maho }}
+            CADDYFILE=${{ matrix.caddyfile }}
           # No layer cache on purpose. `apt-get upgrade` and `composer install`
           # must run on every build, since that refresh is the whole point of the
           # scheduled rebuild, and they sit at the top of the layer chain, so
           # nothing below them is cacheable either. See "Build Cache" in AGENTS.md.
           no-cache: true
 
+      # Test the exact artifact that was just pushed: install Maho for
+      # real against SQLite, then check the promises a build cannot check. It
+      # runs on the native runner, so both architectures are covered.
+      #
+      # Only rows with a `caddyfile` are covered. A row without one keeps the
+      # base image Caddyfile and has no public/rest.php, so it would fail the
+      # routing assertions by design. See "Image Test" in AGENTS.md.
       - name: Export digest
         run: |
           mkdir -p "${{ runner.temp }}/digests"
