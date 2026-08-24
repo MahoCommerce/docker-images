@@ -26,8 +26,14 @@
   { "tag": "26.7.2-php8.3",  "php": "8.3", "debian": "trixie",   "maho": "26.7.2",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2027-12-31" },
   { "tag": "26.7.2-php8.4",  "php": "8.4", "debian": "trixie",   "maho": "26.7.2",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2028-12-31" },
   { "tag": "26.7.2-php8.5",  "php": "8.5", "debian": "trixie",   "maho": "26.7.2",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2029-12-31" },
-  { "tag": "26.7.3-php8.3",  "php": "8.3", "debian": "trixie",   "maho": "26.7.3",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2027-12-31", "aliases": ["latest-php8.3"] },
-  { "tag": "26.7.3-php8.4",  "php": "8.4", "debian": "trixie",   "maho": "26.7.3",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2028-12-31", "aliases": ["latest-php8.4"] },
-  { "tag": "26.7.3-php8.5",  "php": "8.5", "debian": "trixie",   "maho": "26.7.3",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2029-12-31", "aliases": ["latest", "latest-php8.5"] },
+  { "tag": "26.7.3-php8.3",  "php": "8.3", "debian": "trixie",   "maho": "26.7.3",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2027-12-31" },
+  { "tag": "26.7.3-php8.4",  "php": "8.4", "debian": "trixie",   "maho": "26.7.3",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2028-12-31" },
+  { "tag": "26.7.3-php8.5",  "php": "8.5", "debian": "trixie",   "maho": "26.7.3",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2029-12-31" },
+  { "tag": "26.7.4-php8.3",  "php": "8.3", "debian": "trixie",   "maho": "26.7.4",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2027-12-31" },
+  { "tag": "26.7.4-php8.4",  "php": "8.4", "debian": "trixie",   "maho": "26.7.4",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2028-12-31" },
+  { "tag": "26.7.4-php8.5",  "php": "8.5", "debian": "trixie",   "maho": "26.7.4",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2029-12-31" },
+  { "tag": "26.7.5-php8.3",  "php": "8.3", "debian": "trixie",   "maho": "26.7.5",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2027-12-31", "aliases": ["latest-php8.3"] },
+  { "tag": "26.7.5-php8.4",  "php": "8.4", "debian": "trixie",   "maho": "26.7.5",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2028-12-31", "aliases": ["latest-php8.4"] },
+  { "tag": "26.7.5-php8.5",  "php": "8.5", "debian": "trixie",   "maho": "26.7.5",   "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.7", "eol": "2029-12-31", "aliases": ["latest", "latest-php8.5"] },
   { "tag": "nightly",        "php": "8.5", "debian": "trixie",   "maho": "dev-main", "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true, "caddyfile": "26.7" }
 ]
