@@ -15,7 +15,7 @@ ARG SQLITE=true
 # and Composer reads $COMPOSER as the name of its manifest file, so it would
 # try to open "25.11" instead of composer.json.
 ARG COMPOSER_TEMPLATE=25.11
-ARG CADDYFILE=26.7
+ARG CADDYFILE=26.9
 ARG MAHO_VERSION=dev-main
 
 RUN groupadd -g 1000 maho && useradd -u 1000 -g 1000 -m maho

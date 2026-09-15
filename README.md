@@ -5,7 +5,8 @@ This image is based on FrankenPHP and is specifically designed for deployment in
 ## Repository tags
 
 - `nightly`: `dev-main` version of Maho, running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
-- `latest`: latest stable release version of Maho (26.7.5), running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
+- `latest`: latest stable release version of Maho (26.9.0), running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
+- `26.9.0-php8.5`, `26.9.0-php8.4`, `26.9.0-php8.3` -Trixie, MySQL + PostgreSQL + SQLite
 - `26.7.5-php8.5`, `26.7.5-php8.4`, `26.7.5-php8.3` -Trixie, MySQL + PostgreSQL + SQLite
 - `26.7.4-php8.5`, `26.7.4-php8.4`, `26.7.4-php8.3` -Trixie, MySQL + PostgreSQL + SQLite
 - `26.7.3-php8.5`, `26.7.3-php8.4`, `26.7.3-php8.3` -Trixie, MySQL + PostgreSQL + SQLite
@@ -119,6 +120,7 @@ Tags for **Maho 26.7 and later** (`latest` and `nightly` included) ship a Maho s
 - routes `/api/*` to the correct entry point (`rest.php`, `api.php` or `index.php`, depending on the path)
 - denies access to hidden files, with exceptions for `/.well-known/` and `/.thumbs/`
 - denies access to backup, log and configuration files
+- on tags for **Maho 26.9 and later**, lets `.md` page URLs through, because Maho 26.9 generates a markdown version of every page for AI agents
 - answers `405` to `TRACE` and `TRACK`, and sets `X-Content-Type-Options: nosniff`
 
 Without the `/api/*` routing the storefront works and every API call returns the storefront 404 page, so do not drop these rules.
