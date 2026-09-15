@@ -41,14 +41,26 @@ trap cleanup EXIT
 
 in_container() { docker exec "$CONTAINER" "$@"; }
 
+# dev-main counts as newer than every release. Numeric per component, so
+# 26.11.0 is newer than 26.9.0.
+maho_at_least() {   # <version>
+    [ "$MAHO_VERSION" = "dev-main" ] && return 0
+    [ "$(printf '%s\n%s\n' "$1" "$MAHO_VERSION" | sort -V | head -n1)" = "$1" ]
+}
+
 expect_status() {   # <method> <path> <code>
     local got
     got=$(curl -s -o /dev/null -w '%{http_code}' -X "$1" "${BASE}$2")
     [ "$got" = "$3" ] && ok "$1 $2 -> $got" || bad "$1 $2 -> $got, expected $3"
 }
 
+# The body goes into a variable first. Piped into `grep -q`, grep exits at the
+# first match, curl dies of SIGPIPE, and under pipefail the check fails at
+# random. It did, on the arm64 nightly, on a storefront that was fine.
 expect_body() {     # <path> <regex> <description>
-    curl -sS "${BASE}$1" | grep -qEi -- "$2" \
+    local body
+    body=$(curl -sS "${BASE}$1")
+    printf '%s' "$body" | grep -qEi -- "$2" \
         && ok "GET $1 contains $3" || bad "GET $1 does not contain $3"
 }
 
@@ -175,6 +187,16 @@ expect_status GET '/admin' 200
 expect_status GET '/robots.txt' 200
 expect_status GET '/llms.txt' 200
 expect_status GET '/llms-full.txt' 200
+
+# Since Maho 26.9 a page URL with a .md suffix is the markdown version of the
+# page (MahoCommerce/maho#1350), so the 26.9 Caddyfile no longer denies *.md.
+# Older rows keep the 26.7 Caddyfile, where /index.md is a Caddy 404.
+if maho_at_least 26.9.0; then
+    expect_status GET '/index.md' 200
+    expect_content_type '/index.md' 'text/markdown' 'the markdown renderer'
+else
+    expect_status GET '/index.md' 404
+fi
 
 log "api routing"
 
