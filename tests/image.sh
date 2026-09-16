@@ -6,6 +6,8 @@
 # Usage: tests/image.sh <image-ref>
 #   MAHO_VERSION        expected version, dev-main to skip the check
 #   MYSQL PGSQL SQLITE  the database claims of the row, as in versions.json
+#   NODEJS              whether the row ships Node and the Chromium libraries;
+#                       defaults to true for Maho 26.9 and later
 #   PORT                host port (default 8080)
 #   ARTIFACTS           where failure screenshots go (default test-artifacts)
 #
@@ -48,6 +50,10 @@ maho_at_least() {   # <version>
     [ "$(printf '%s\n%s\n' "$1" "$MAHO_VERSION" | sort -V | head -n1)" = "$1" ]
 }
 
+if [ -z "${NODEJS:-}" ]; then
+    maho_at_least 26.9.0 && NODEJS=true || NODEJS=false
+fi
+
 expect_status() {   # <method> <path> <code>
     local got
     got=$(curl -s -o /dev/null -w '%{http_code}' -X "$1" "${BASE}$2")
@@ -84,8 +90,16 @@ expect_content_type() { # <path> <expected substring> <description>
 start_container() {
     docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
     # SERVER_NAME=:80 serves plain HTTP. A hostname makes FrankenPHP get a
-    # TLS certificate instead.
-    docker run -d --name "$CONTAINER" -e SERVER_NAME=":80" -p "${PORT}:80" "$IMAGE" >/dev/null
+    # TLS certificate instead. The container also listens on $PORT itself,
+    # because the accessibility scanner runs inside the container and must
+    # reach the store on its base URL, which carries the host port.
+    local names=":80" ports="-p ${PORT}:80"
+    if [ "$PORT" != "80" ]; then
+        names=":80, :${PORT}"
+        ports="-p ${PORT}:${PORT}"
+    fi
+    # shellcheck disable=SC2086
+    docker run -d --name "$CONTAINER" -e SERVER_NAME="$names" $ports "$IMAGE" >/dev/null
     for _ in $(seq 60); do
         curl -sf -o /dev/null "${BASE}/" && return 0
         sleep 1
@@ -120,6 +134,14 @@ db_exts=""
 for ext in $db_exts; do
     has_module "$ext" && ok "php extension $ext" || bad "php extension $ext is missing"
 done
+
+if [ "$NODEJS" = "true" ]; then
+    node_version=$(in_container node --version 2>/dev/null || echo none)
+    node_major=${node_version#v}; node_major=${node_major%%.*}
+    [ "$node_major" -ge 20 ] 2>/dev/null && ok "node $node_version" \
+        || bad "node is $node_version, the accessibility scanner needs 20 or newer"
+    in_container npm --version >/dev/null 2>&1 && ok "npm is installed" || bad "npm is missing"
+fi
 
 if [ -n "$MAHO_VERSION" ] && [ "$MAHO_VERSION" != "dev-main" ]; then
     got=$(in_container composer show --format=json mahocommerce/maho | jq -r '.versions[0]' | sed 's/^v//')
@@ -218,6 +240,36 @@ expect_content_type '/api/rest/v2/products' 'application/ld+json' 'the API Platf
 # Legacy SOAP must reach index.php, so it must not be rewritten to rest.php.
 expect_status GET '/api/soap/?wsdl' 200
 expect_content_type '/api/soap/?wsdl' 'text/xml' 'the legacy SOAP controller'
+
+if [ "$NODEJS" = "true" ]; then
+    log "accessibility scan"
+
+    # The only proof that the Chromium libraries in the image are complete is
+    # a Chromium that starts. accessibility:install runs npm install and
+    # downloads Chromium under var/, roughly 300 MB; the scan then drives it
+    # against the store. The URL must match a store base URL host and port,
+    # which is why the container listens on $PORT too.
+    if in_container ./maho accessibility:install >/dev/null 2>&1; then
+        ok "accessibility:install"
+        # Playwright inspects the linked libraries of its Chromium before it
+        # launches and names every missing one. That is the drift check for
+        # the CHROMIUM_PKGS list in the Dockerfile: when a future Chromium
+        # links a new library, this fails and says which package to add.
+        launch=$(in_container sh -c 'cd var/accessibility-scan/playwright && PLAYWRIGHT_BROWSERS_PATH=$PWD/browsers node -e "require(\"playwright\").chromium.launch().then(b => b.close())"' 2>&1) \
+            && ok "playwright launches chromium, no missing library" \
+            || bad "playwright cannot launch chromium: $(printf '%s' "$launch" | grep -iA12 'missing' | head -15)"
+        scan=$(in_container ./maho accessibility:scan --url "${BASE}/" --level AA --format json 2>/dev/null || true)
+        status=$(printf '%s' "$scan" | jq -r '.status // empty' 2>/dev/null || true)
+        if [ "$status" = "complete" ]; then
+            ok "accessibility:scan completed ($(printf '%s' "$scan" | jq -r '.total_violations') violations)"
+        else
+            bad "accessibility:scan did not complete: $(printf '%s' "$scan" | tail -c 300)"
+        fi
+    else
+        bad "accessibility:install failed"
+        in_container ./maho accessibility:install 2>&1 | tail -20 || true
+    fi
+fi
 
 log "result"
 if [ "$failures" -eq 0 ]; then

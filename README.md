@@ -133,6 +133,20 @@ Older tags keep the base FrankenPHP site block, because Maho before 26.7 has no 
 
 Full reference: [mahocommerce.com/hosting/web-server](https://mahocommerce.com/hosting/web-server/).
 
+## Accessibility scanner
+
+Tags for **Maho 26.9 and later** (`latest` and `nightly` included) ship Node.js 24 and the shared libraries Chromium needs, so the WCAG accessibility scanner of Maho 26.9 works on this image. The scanner itself is not in the image: Maho installs Playwright, axe-core and Chromium (roughly 300 MB) under `var/accessibility-scan/` the first time you run:
+
+```bash
+docker exec -it maho ./maho accessibility:install
+```
+
+Run it once after every deploy, or mount `var/accessibility-scan/` as a volume so the download survives a redeploy. Maho only installs the runtime from the command line, never from a web request, so a scan started from the admin fails until this command has run.
+
+If you build your own image on top of this one and install a package that renders with Mesa (for example Debian's `chromium` or `libgl1`), remove the empty `mesa-libgallium` stub first with `apt-get remove mesa-libgallium`. It stands in for the real package, which headless Chromium does not need, to keep the image about 180 MB smaller.
+
+The Tailwind CSS toolchain of the new storefront themes is **not** in the image. The compiled CSS ships with Maho, and theming a store from the admin needs no build. `dev:frontend:theme:build` is a development command; if you run it in the container it offers to install the toolchain with `npm`, which is available.
+
 ## Customizing the platform
 
 We all know an ecommerce project needs addon modules and custom development, thus, most probably, you won't be able to use this image as is. Our suggestion is to import it in your project repository and build your own on top of it. This way you'll take advantage of the official developments/support/updates, with the power of your custom implementations.

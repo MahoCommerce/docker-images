@@ -199,6 +199,7 @@ jobs:
             COMPOSER_TEMPLATE=${{ matrix.composer_json }}
             MAHO_VERSION=${{ matrix.maho }}
             CADDYFILE=${{ matrix.caddyfile }}
+            NODEJS=${{ matrix.nodejs || false }}
           # No layer cache on purpose. `apt-get upgrade` and `composer install`
           # must run on every build, since that refresh is the whole point of the
           # scheduled rebuild, and they sit at the top of the layer chain, so
@@ -217,6 +218,7 @@ jobs:
         if: ${{ matrix.test }}
         env:
           MAHO_VERSION: ${{ matrix.maho }}
+          NODEJS: ${{ matrix.nodejs || false }}
           MYSQL: ${{ matrix.mysql }}
           PGSQL: ${{ matrix.pgsql }}
           SQLITE: ${{ matrix.sqlite }}

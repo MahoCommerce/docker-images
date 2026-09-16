@@ -63,6 +63,7 @@ Each entry defines a Docker image variant with:
 - `composer_json`: which template from `config/composer/` to use
 - `mysql`, `pgsql`, `sqlite`: database support booleans
 - `caddyfile`: which template from `config/caddyfile/` to use, or `null` to keep the Caddyfile of the base image
+- `nodejs` (optional, default false): install Node.js and the Chromium shared libraries for the accessibility scanner of Maho 26.9+ (see **Node and Chromium** below). Set on every row for Maho 26.9 and later, and on `nightly`
 - `eol`: last day (`YYYY-MM-DD`) this tag is rebuilt (see **Support Lifecycle** below). Omitted only by `nightly`, which never expires
 - `aliases` (optional): list of tag names to retag onto this image after a successful build (e.g. `["latest", "latest-php8.5"]`). Retag uses `docker buildx imagetools create` — a registry-side manifest copy, no rebuild. An alias can also be passed to the `workflow_dispatch` `tag` input to retag without rebuilding the source.
 
@@ -155,6 +156,21 @@ Two traps in the template itself:
 
 The template must stay in sync with Maho's own `public/.htaccess`, which is the reference implementation, and with the docs page at `mahocommerce.com/hosting/web-server`.
 
+### Node and Chromium (`nodejs`)
+Maho 26.9 added `Maho_AccessibilityScan`, which spawns `node` and `npm` from PHP, installs Playwright and axe-core under `var/accessibility-scan/` on first use, downloads Chromium there, and drives it headless. It requires Node 20 or newer. Without Node the admin reports "Node.js was not found"; without Chromium's shared libraries the browser does not start. A row with `nodejs: true` gets both, in the same layer as the apt upgrade:
+
+- **Node** is copied out of the official `node:<NODE_MAJOR>-trixie-slim` image: the `node` binary, npm, and the `npm`/`npx` symlinks. That image is built from the same tarball as nodejs.org and is multi-arch. The stage is selected by the build arg (`FROM node-${NODEJS}`), so a row without Node never pulls it. Debian's own `nodejs` package is not used because trixie ships Node 20, end of life since April 2026. Dependabot bumps the `FROM` tag.
+- **The Chromium libraries**, `CHROMIUM_PKGS` in the Dockerfile: the `chromium` list of Playwright's `nativeDeps.ts` for `debian13`, identical on x64 and arm64, plus `fonts-liberation` and `fonts-noto-color-emoji`, installed without recommends. The list is spelled out because Playwright's Chromium is not an apt package but a bare binary downloaded at runtime, so apt has nothing to resolve for it. `playwright install-deps chromium` was tried and rejected: it names the whole simulated apt closure explicitly, so it reinstalls the real Mesa over the stub and marks `xvfb`'s tree manual, 200 MB more for the same libraries. **Drift is caught by the test, not by this list**: Playwright inspects the linked libraries of its Chromium at launch and names any missing one, and `tests/image.sh` runs that launch on every build of these rows, so a future Chromium that links a new library fails the build with the package to add.
+- **An empty `mesa-libgallium` stub**, built with `dpkg-deb` at the exact version the candidate `libgbm1` depends on, installed before Playwright runs. Chromium links `libgbm`, but `libgbm` only dlopens Mesa when a program creates a GBM device, which headless Chromium never does: it renders with its bundled SwiftShader, as its own log shows. The real package drags in LLVM and Z3, about 180 MB. With the stub pre-installed apt sees the dependency satisfied and never fetches them. The stub is rebuilt from the candidate version on every build, so it follows upgrades. The cost lands on anyone who later installs something that renders with Mesa in a derived image: they must remove the stub first. The README says so.
+
+Bun is not an option: the scanner runs the configured binary with `--version` and rejects anything below 20, Bun reports 1.x, and Playwright supports Node only.
+
+The Tailwind toolchain in Maho's `package.json` is not installed. The compiled theme CSS ships in the package, and `dev:frontend:theme:build` is a development command that installs the toolchain itself through npm when asked.
+
+The scanner runtime lands under `var/`, which the README compose file does not persist, so it is re-downloaded after a redeploy. Maho installs it from the CLI only (`./maho accessibility:install`); a web-triggered scan fails until that has run once. The README says so.
+
+Only trixie rows may set `nodejs`: the Node image and Playwright's package list are the Debian 13 ones.
+
 ### Image Test (`tests/`)
 `tests/image.sh` runs against a built image and checks what a build cannot: that
 PHP boots the application, that the wizard a PaaS user meets actually works, and
@@ -178,6 +194,17 @@ After installing it checks the file access rules, then enables the `rest_v2` and
 `soap` protocols with `config:set` and checks the `/api/*` routing. Every API
 protocol is opt-in and answers 404 when off, so without enabling them a routing
 rule cannot be told apart from a disabled protocol.
+
+On rows with `nodejs` (defaulting to true for Maho 26.9 and later when the
+variable is unset) it also checks the Node version, runs
+`accessibility:install`, launches Playwright's Chromium once directly, and
+runs one `accessibility:scan` against the store. The direct launch is the
+drift check for `CHROMIUM_PKGS`: Playwright validates the linked libraries of
+its Chromium before launching and names every missing one, so the failure
+message says which package to add. The scan then proves the whole path,
+Mesa stub included. The scanner runs inside the container and the scan URL
+must match a store base URL host and port, so the container listens on the
+host port too (`SERVER_NAME=":80, :$PORT"`).
 
 Two things to know when editing it:
 - Assert against directives, not comments. An earlier check grepped the
