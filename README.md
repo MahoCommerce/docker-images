@@ -136,13 +136,20 @@ Full reference: [mahocommerce.com/hosting/web-server](https://mahocommerce.com/h
 
 ## Accessibility scanner
 
-Tags for **Maho 26.9 and later** (`latest` and `nightly` included) ship Node.js 24 and the shared libraries Chromium needs, so the WCAG accessibility scanner of Maho 26.9 works on this image. The scanner itself is not in the image: Maho installs Playwright, axe-core and Chromium (roughly 300 MB) under `var/accessibility-scan/` the first time you run:
+Tags for **Maho 26.9 and later** (`latest` and `nightly` included) ship Node.js 24 and the shared libraries Chromium needs, so the WCAG accessibility scanner of Maho 26.9 works on this image. The scanner itself is not in the image: Maho downloads Playwright, axe-core and a headless Chromium (roughly 300 MB) into `var/` the first time you run its install command. The command and the directory depend on the Maho version:
+
+| Maho | install command | runtime directory |
+|---|---|---|
+| 26.9.x | `./maho accessibility:install` | `var/accessibility-scan/` |
+| 26.11 and later (`nightly`) | `./maho sys:playwright:install` | `var/browser-runtime/` |
+
+For example, on `latest`:
 
 ```bash
 docker exec -it maho ./maho accessibility:install
 ```
 
-Run it once after every deploy, or mount `var/accessibility-scan/` as a volume so the download survives a redeploy. Maho only installs the runtime from the command line, never from a web request, so a scan started from the admin fails until this command has run.
+Run it once after every deploy, or mount the runtime directory as a volume so the download survives a redeploy. Maho only installs the runtime from the command line, never from a web request, so a scan started from the admin fails until this command has run. From 26.11 you can also move the runtime out of `var/` with the `MAHO_BROWSER_RUNTIME_DIR` environment variable.
 
 If you build your own image on top of this one and install a package that renders with Mesa (for example Debian's `chromium` or `libgl1`), remove the empty `mesa-libgallium` stub first with `apt-get remove mesa-libgallium`. It stands in for the real package, which headless Chromium does not need, to keep the image about 180 MB smaller.
 

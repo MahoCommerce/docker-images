@@ -167,7 +167,7 @@ Bun is not an option: the scanner runs the configured binary with `--version` an
 
 The Tailwind toolchain in Maho's `package.json` is not installed. The compiled theme CSS ships in the package, and `dev:frontend:theme:build` is a development command that installs the toolchain itself through npm when asked.
 
-The scanner runtime lands under `var/`, which the README compose file does not persist, so it is re-downloaded after a redeploy. Maho installs it from the CLI only (`./maho accessibility:install`); a web-triggered scan fails until that has run once. The README says so.
+The scanner runtime lands under `var/`, which the README compose file does not persist, so it is re-downloaded after a redeploy. Maho installs it from the CLI only, with `./maho accessibility:install` into `var/accessibility-scan/` on 26.9, and with `./maho sys:playwright:install` into `var/browser-runtime/` from 26.11 (MahoCommerce/maho#1432); a web-triggered scan fails until that has run once. The README says so.
 
 Only trixie rows may set `nodejs`: the Node image and Playwright's package list are the Debian 13 ones.
 
@@ -196,15 +196,19 @@ protocol is opt-in and answers 404 when off, so without enabling them a routing
 rule cannot be told apart from a disabled protocol.
 
 On rows with `nodejs` (defaulting to true for Maho 26.9 and later when the
-variable is unset) it also checks the Node version, runs
-`accessibility:install`, launches Playwright's Chromium once directly, and
-runs one `accessibility:scan` against the store. The direct launch is the
-drift check for `CHROMIUM_PKGS`: Playwright validates the linked libraries of
-its Chromium before launching and names every missing one, so the failure
-message says which package to add. The scan then proves the whole path,
-Mesa stub included. The scanner runs inside the container and the scan URL
-must match a store base URL host and port, so the container listens on the
-host port too (`SERVER_NAME=":80, :$PORT"`).
+variable is unset) it also checks the Node version, runs the install command,
+launches Playwright's Chromium once directly, and runs one
+`accessibility:scan` against the store. The direct launch is the drift check
+for `CHROMIUM_PKGS`: Playwright validates the linked libraries of its Chromium
+before launching and names every missing one, so the failure message says
+which package to add. The scan then proves the whole path, Mesa stub included.
+The install command is `accessibility:install` with its runtime in
+`var/accessibility-scan/playwright` on 26.9, and `sys:playwright:install`
+with `var/browser-runtime` from 26.11 (MahoCommerce/maho#1432). The test reads
+`./maho list` to choose, because no release has the new command yet to compare
+against. The scanner runs inside the container and the scan URL must match a
+store base URL host and port, so the container listens on the host port too
+(`SERVER_NAME=":80, :$PORT"`).
 
 Two things to know when editing it:
 - Assert against directives, not comments. An earlier check grepped the

@@ -245,17 +245,30 @@ if [ "$NODEJS" = "true" ]; then
     log "accessibility scan"
 
     # The only proof that the Chromium libraries in the image are complete is
-    # a Chromium that starts. accessibility:install runs npm install and
+    # a Chromium that starts. The install command runs npm install and
     # downloads Chromium under var/, roughly 300 MB; the scan then drives it
     # against the store. The URL must match a store base URL host and port,
     # which is why the container listens on $PORT too.
-    if in_container ./maho accessibility:install >/dev/null 2>&1; then
-        ok "accessibility:install"
+    #
+    # Maho 26.11 moves the install to sys:playwright:install, shared by
+    # every browser-based scanner, and the runtime to var/browser-runtime
+    # (MahoCommerce/maho#1432). The command the image has decides, because
+    # no release has it yet to compare against.
+    commands=$(in_container ./maho list --raw 2>/dev/null || true)
+    if grep -qE '^sys:playwright:install( |$)' <<<"$commands"; then
+        install_cmd=sys:playwright:install
+        runtime_dir=var/browser-runtime
+    else
+        install_cmd=accessibility:install
+        runtime_dir=var/accessibility-scan/playwright
+    fi
+    if in_container ./maho "$install_cmd" >/dev/null 2>&1; then
+        ok "$install_cmd"
         # Playwright inspects the linked libraries of its Chromium before it
         # launches and names every missing one. That is the drift check for
         # the CHROMIUM_PKGS list in the Dockerfile: when a future Chromium
         # links a new library, this fails and says which package to add.
-        launch=$(in_container sh -c 'cd var/accessibility-scan/playwright && PLAYWRIGHT_BROWSERS_PATH=$PWD/browsers node -e "require(\"playwright\").chromium.launch().then(b => b.close())"' 2>&1) \
+        launch=$(in_container sh -c "cd $runtime_dir"' && PLAYWRIGHT_BROWSERS_PATH=$PWD/browsers node -e "require(\"playwright\").chromium.launch().then(b => b.close())"' 2>&1) \
             && ok "playwright launches chromium, no missing library" \
             || bad "playwright cannot launch chromium: $(printf '%s' "$launch" | grep -iA12 'missing' | head -15)"
         scan=$(in_container ./maho accessibility:scan --url "${BASE}/" --level AA --format json 2>/dev/null || true)
@@ -266,8 +279,8 @@ if [ "$NODEJS" = "true" ]; then
             bad "accessibility:scan did not complete: $(printf '%s' "$scan" | tail -c 300)"
         fi
     else
-        bad "accessibility:install failed"
-        in_container ./maho accessibility:install 2>&1 | tail -20 || true
+        bad "$install_cmd failed"
+        in_container ./maho "$install_cmd" 2>&1 | tail -20 || true
     fi
 fi
 
