@@ -55,6 +55,10 @@
 		}
 		respond @private 404
 
+		# Customer uploads and purchased files. Maho serves them through PHP only.
+		@private_media path /media/customer/* /media/customer_address/* /media/downloadable/* /media/custom_options/*
+		respond @private_media 404
+
 		# /api/* entry points, in this order:
 		#   /api/rest/v2/*                        -> rest.php  (must precede /api/rest)
 		#   /api/rest/*                           -> api.php   (legacy Magento 1 REST)

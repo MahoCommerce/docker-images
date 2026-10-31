@@ -168,6 +168,9 @@ expect_redirect '/' '/install'
 # public/.htaccess is the one shipped file the @hidden rule denies.
 expect_status GET '/.htaccess' 404
 expect_status GET '/media/.htaccess' 404
+# A real file, so the 404 comes from @private_media and not from a missing file.
+in_container sh -c 'mkdir -p public/media/downloadable && echo probe > public/media/downloadable/probe.pdf'
+expect_status GET '/media/downloadable/probe.pdf' 404
 expect_status TRACE '/' 405
 
 log "installing Maho through the web wizard"
