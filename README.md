@@ -5,7 +5,10 @@ This image is based on FrankenPHP and is specifically designed for deployment in
 ## Repository tags
 
 - `nightly`: `dev-main` version of Maho, running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
-- `latest`: latest stable release version of Maho (26.9.3), running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
+- `latest`: latest stable release version of Maho (26.11.0), running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
+- `latest-php8.5`: the same image as `latest`
+- `latest-php8.4`, `latest-php8.3`: the newest Maho release that runs on that PHP version. Today this is **26.9.3, not 26.11.0**, because Maho 26.11 requires PHP 8.5.1 or later. These tags stay on 26.9.3 and still get the security rebuilds, until their PHP version reaches end of life (see [Support lifecycle](#support-lifecycle)). To get Maho 26.11, move to `latest` or `latest-php8.5`
+- `26.11.0-php8.5` -Trixie, MySQL + PostgreSQL + SQLite. There is no PHP 8.4 or 8.3 tag, because Maho 26.11 requires PHP 8.5.1 or later
 - `26.9.3-php8.5`, `26.9.3-php8.4`, `26.9.3-php8.3` -Trixie, MySQL + PostgreSQL + SQLite
 - `26.9.2-php8.5`, `26.9.2-php8.4`, `26.9.2-php8.3` -Trixie, MySQL + PostgreSQL + SQLite
 - `26.9.1-php8.5`, `26.9.1-php8.4`, `26.9.1-php8.3` -Trixie, MySQL + PostgreSQL + SQLite
@@ -143,12 +146,12 @@ Tags for **Maho 26.9 and later** (`latest` and `nightly` included) ship Node.js 
 | Maho | install command | runtime directory |
 |---|---|---|
 | 26.9.x | `./maho accessibility:install` | `var/accessibility-scan/` |
-| 26.11 and later (`nightly`) | `./maho sys:playwright:install` | `var/browser-runtime/` |
+| 26.11 and later (`latest`, `nightly`) | `./maho sys:playwright:install` | `var/browser-runtime/` |
 
 For example, on `latest`:
 
 ```bash
-docker exec -it maho ./maho accessibility:install
+docker exec -it maho ./maho sys:playwright:install
 ```
 
 Run it once after every deploy, or mount the runtime directory as a volume so the download survives a redeploy. Maho only installs the runtime from the command line, never from a web request, so a scan started from the admin fails until this command has run. From 26.11 you can also move the runtime out of `var/` with the `MAHO_BROWSER_RUNTIME_DIR` environment variable.

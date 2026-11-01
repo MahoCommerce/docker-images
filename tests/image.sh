@@ -244,6 +244,18 @@ expect_content_type '/api/rest/v2/products' 'application/ld+json' 'the API Platf
 expect_status GET '/api/soap/?wsdl' 200
 expect_content_type '/api/soap/?wsdl' 'text/xml' 'the legacy SOAP controller'
 
+# Maho 26.11 serves the AI catalog at /.well-known/ai-catalog.json
+# (MahoCommerce/maho#1558), so the 26.11 Caddyfile exempts it from @private.
+# Both well-known MCP documents answer 404 while MCP is off, so turn it on.
+# Before 26.11, symfony/mcp-bundle is not installed and MCP cannot be on.
+if maho_at_least 26.11.0; then
+    in_container ./maho config:set apiplatform/protocols/mcp 1 --scope default --scope-id 0 >/dev/null
+    in_container ./maho cache:flush >/dev/null
+    expect_status GET '/.well-known/mcp.json' 200
+    expect_status GET '/.well-known/ai-catalog.json' 200
+    expect_body '/.well-known/ai-catalog.json' '"specVersion"' 'the AI catalog'
+fi
+
 if [ "$NODEJS" = "true" ]; then
     log "accessibility scan"
 

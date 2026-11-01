@@ -1,4 +1,4 @@
-# Maho site block for FrankenPHP, for Maho 26.9 and later. It replaces the
+# Maho site block for FrankenPHP, for Maho 26.9. It replaces the
 # Caddyfile of the dunglas/frankenphp base image, which serves a plain PHP
 # application and would send every /api/* path to index.php.
 #

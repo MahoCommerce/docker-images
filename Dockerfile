@@ -25,7 +25,7 @@ ARG SQLITE=true
 # and Composer reads $COMPOSER as the name of its manifest file, so it would
 # try to open "25.11" instead of composer.json.
 ARG COMPOSER_TEMPLATE=25.11
-ARG CADDYFILE=26.9
+ARG CADDYFILE=26.11
 ARG MAHO_VERSION=dev-main
 
 # Node.js and the shared libraries of Chromium, for the accessibility scanner
