@@ -26,7 +26,7 @@ docker run -p 80:80 maho-local
 ```
 
 ### Adding a New MahoCommerce Version
-1. Add entries to `versions.json` (one per PHP version), including an `eol` date for each (see **Support Lifecycle** below). Add a row only for a PHP version that the release supports: read `require.php` in the `composer.json` of its tag. Maho 26.11 requires PHP 8.5.1 or later, so it has one row, and `latest-php8.4` and `latest-php8.3` stay on 26.9.3
+1. Add entries to `versions.json` (one per PHP version), including an `eol` date for each (see **Support Lifecycle** below). Add a row only for a PHP version that the release supports: read `require.php` in the `composer.json` of its tag. Maho 26.11 requires PHP 8.5.1 or later, so it has one row, and `latest-php8.4` and `latest-php8.3` stay on 26.9.3. Give each row a `nodejs` value: the current Node LTS major, which can be newer than the one of the previous Maho version (see **Node and Chromium** below)
 2. If the new version needs a different `composer.json` structure, add a template in `config/composer/`
 3. If the new version needs different web server rules, add a template in `config/caddyfile/` and point the new rows at it; otherwise reuse the newest existing one
 4. Commit and push to `main`
@@ -63,7 +63,7 @@ Each entry defines a Docker image variant with:
 - `composer_json`: which template from `config/composer/` to use
 - `mysql`, `pgsql`, `sqlite`: database support booleans
 - `caddyfile`: which template from `config/caddyfile/` to use, or `null` to keep the Caddyfile of the base image
-- `nodejs` (optional, default false): install Node.js and the Chromium shared libraries for the accessibility scanner of Maho 26.9+ (see **Node and Chromium** below). Set on every row for Maho 26.9 and later, and on `nightly`
+- `nodejs` (optional): the Node.js major as a string (`"24"`, `"26"`). It installs that Node and the Chromium shared libraries for the accessibility scanner of Maho 26.9+ (see **Node and Chromium** below). Set on every row for Maho 26.9 and later, and on `nightly`. Absent means no Node. The workflow refuses any other value, `true` included
 - `eol`: last day (`YYYY-MM-DD`) this tag is rebuilt (see **Support Lifecycle** below). Omitted only by `nightly`, which never expires
 - `aliases` (optional): list of tag names to retag onto this image after a successful build (e.g. `["latest", "latest-php8.5"]`). Retag uses `docker buildx imagetools create` — a registry-side manifest copy, no rebuild. An alias can also be passed to the `workflow_dispatch` `tag` input to retag without rebuilding the source.
 
@@ -158,9 +158,11 @@ Two traps in the template itself:
 The template must stay in sync with Maho's own `public/.htaccess`, which is the reference implementation, and with the docs page at `mahocommerce.com/hosting/web-server`.
 
 ### Node and Chromium (`nodejs`)
-Maho 26.9 added `Maho_AccessibilityScan`, which spawns `node` and `npm` from PHP, installs Playwright and axe-core under `var/accessibility-scan/` on first use, downloads Chromium there, and drives it headless. It requires Node 20 or newer. Without Node the admin reports "Node.js was not found"; without Chromium's shared libraries the browser does not start. A row with `nodejs: true` gets both, in the same layer as the apt upgrade:
+Maho 26.9 added `Maho_AccessibilityScan`, which spawns `node` and `npm` from PHP, installs Playwright and axe-core under `var/accessibility-scan/` on first use, downloads Chromium there, and drives it headless. It requires Node 20 or newer. Without Node the admin reports "Node.js was not found"; without Chromium's shared libraries the browser does not start. A row with a `nodejs` value gets both, in the same layer as the apt upgrade:
 
-- **Node** is copied out of the official `node:<NODE_MAJOR>-trixie-slim` image: the `node` binary, npm, and the `npm`/`npx` symlinks. That image is built from the same tarball as nodejs.org and is multi-arch. The stage is selected by the build arg (`FROM node-${NODEJS}`), so a row without Node never pulls it. Debian's own `nodejs` package is not used because trixie ships Node 20, end of life since April 2026. Dependabot bumps the `FROM` tag.
+- **Node** is copied out of the official `node:<NODE_MAJOR>-trixie-slim` image: the `node` binary, npm, and the `npm`/`npx` symlinks. That image is built from the same tarball as nodejs.org and is multi-arch. The stage is selected by the build arg (`FROM node-${NODEJS}`), so a row without Node never pulls it. Debian's own `nodejs` package is not used because trixie ships Node 20, end of life since April 2026.
+- **The Node major is part of the row, not of the Dockerfile.** The workflow sends the row's `nodejs` value as `NODE_MAJOR`, so a released tag keeps the Node major it was released with, and a rebuild never moves it to a new major. A new major starts with a new Maho version: 26.9.x has `"24"`, 26.11 and `nightly` have `"26"`. Nothing bumps it automatically: Dependabot cannot read a tag that comes from a build arg. The Dockerfile default (`ARG NODE_MAJOR`) is the major of the newest rows, for a local `docker build` and for rows without Node, which get it but never pull it. The workflow cannot send an empty value: `FROM node:-trixie-slim` is not a valid reference, and the build fails even though that stage is not built
+- **A row can outlive its Node major.** Node 24 ends on 2028-04-30, before the `eol` of the 26.9.x rows on PHP 8.4 and 8.5. Before that date, move those rows to a supported major, in a commit of its own, and test them. `eol` stays the PHP and Debian date: an old Node is fixed by a new major, not by ending the tag
 - **The Chromium libraries**, `CHROMIUM_PKGS` in the Dockerfile: the `chromium` list of Playwright's `nativeDeps.ts` for `debian13`, identical on x64 and arm64, plus `fonts-liberation` and `fonts-noto-color-emoji`, installed without recommends. The list is spelled out because Playwright's Chromium is not an apt package but a bare binary downloaded at runtime, so apt has nothing to resolve for it. `playwright install-deps chromium` was tried and rejected: it names the whole simulated apt closure explicitly, so it reinstalls the real Mesa over the stub and marks `xvfb`'s tree manual, 200 MB more for the same libraries. **Drift is caught by the test, not by this list**: Playwright inspects the linked libraries of its Chromium at launch and names any missing one, and `tests/image.sh` runs that launch on every build of these rows, so a future Chromium that links a new library fails the build with the package to add.
 - **An empty `mesa-libgallium` stub**, built with `dpkg-deb` at the exact version the candidate `libgbm1` depends on, installed before Playwright runs. Chromium links `libgbm`, but `libgbm` only dlopens Mesa when a program creates a GBM device, which headless Chromium never does: it renders with its bundled SwiftShader, as its own log shows. The real package drags in LLVM and Z3, about 180 MB. With the stub pre-installed apt sees the dependency satisfied and never fetches them. The stub is rebuilt from the candidate version on every build, so it follows upgrades. The cost lands on anyone who later installs something that renders with Mesa in a derived image: they must remove the stub first. The README says so.
 
@@ -200,7 +202,7 @@ also enables the `mcp` protocol and checks `/.well-known/mcp.json` and
 `symfony/mcp-bundle` is not installed, so MCP cannot be on.
 
 On rows with `nodejs` (defaulting to true for Maho 26.9 and later when the
-variable is unset) it also checks the Node version, runs the install command,
+variable is unset) it also checks the Node version (exactly the row's major in the workflow, 20 or newer when `NODE_MAJOR` is unset), runs the install command,
 launches Playwright's Chromium once directly, and runs one
 `accessibility:scan` against the store. The direct launch is the drift check
 for `CHROMIUM_PKGS`: Playwright validates the linked libraries of its Chromium

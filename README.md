@@ -141,7 +141,7 @@ Full reference: [mahocommerce.com/hosting/web-server](https://mahocommerce.com/h
 
 ## Accessibility scanner
 
-Tags for **Maho 26.9 and later** (`latest` and `nightly` included) ship Node.js 24 and the shared libraries Chromium needs, so the WCAG accessibility scanner of Maho 26.9 works on this image. The scanner itself is not in the image: Maho downloads Playwright, axe-core and a headless Chromium (roughly 300 MB) into `var/` the first time you run its install command. The command and the directory depend on the Maho version:
+Tags for **Maho 26.9 and later** (`latest` and `nightly` included) ship Node.js and the shared libraries Chromium needs, so the WCAG accessibility scanner of Maho 26.9 works on this image. The 26.9.x tags have Node.js 24. The tags from 26.11 (`latest` and `nightly` included) have Node.js 26. The scanner itself is not in the image: Maho downloads Playwright, axe-core and a headless Chromium (roughly 300 MB) into `var/` the first time you run its install command. The command and the directory depend on the Maho version:
 
 | Maho | install command | runtime directory |
 |---|---|---|

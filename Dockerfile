@@ -1,11 +1,15 @@
 ARG PHP_VERSION=8.5
 ARG DEBIAN_VARIANT=trixie
 ARG NODEJS=true
-ARG NODE_MAJOR=24
+ARG NODE_MAJOR=26
 
 # Where Node comes from: the official image, built from the same tarball as
 # nodejs.org and multi-arch, or nothing. The stage is picked by NODEJS, so a
-# row without Node never pulls the Node image.
+# row without Node never pulls the Node image. NODE_MAJOR comes from the
+# `nodejs` field of the row, so a tag keeps the Node major it was released
+# with. The default is the major of the newest Maho generation. A row without
+# Node gets the default too, because an empty tag is not a valid reference
+# even in a stage that is never built.
 FROM node:${NODE_MAJOR}-trixie-slim AS node-true
 FROM scratch AS node-false
 FROM node-${NODEJS} AS node

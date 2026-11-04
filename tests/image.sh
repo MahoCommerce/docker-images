@@ -8,6 +8,8 @@
 #   MYSQL PGSQL SQLITE  the database claims of the row, as in versions.json
 #   NODEJS              whether the row ships Node and the Chromium libraries;
 #                       defaults to true for Maho 26.9 and later
+#   NODE_MAJOR          the Node major the row asks for; empty to accept any
+#                       major from 20
 #   PORT                host port (default 8080)
 #   ARTIFACTS           where failure screenshots go (default test-artifacts)
 #
@@ -24,6 +26,7 @@ ARTIFACTS="${ARTIFACTS:-test-artifacts}"
 MYSQL="${MYSQL:-false}"
 PGSQL="${PGSQL:-false}"
 SQLITE="${SQLITE:-true}"
+NODE_MAJOR="${NODE_MAJOR:-}"
 PLAYWRIGHT_VERSION="1.62.1"   # pinned: this test gates every alias
 
 failures=0
@@ -138,8 +141,13 @@ done
 if [ "$NODEJS" = "true" ]; then
     node_version=$(in_container node --version 2>/dev/null || echo none)
     node_major=${node_version#v}; node_major=${node_major%%.*}
-    [ "$node_major" -ge 20 ] 2>/dev/null && ok "node $node_version" \
-        || bad "node is $node_version, the accessibility scanner needs 20 or newer"
+    if [ -n "$NODE_MAJOR" ]; then
+        [ "$node_major" = "$NODE_MAJOR" ] && ok "node $node_version" \
+            || bad "node is $node_version, the row asks for Node $NODE_MAJOR"
+    else
+        [ "$node_major" -ge 20 ] 2>/dev/null && ok "node $node_version" \
+            || bad "node is $node_version, the accessibility scanner needs 20 or newer"
+    fi
     in_container npm --version >/dev/null 2>&1 && ok "npm is installed" || bad "npm is missing"
 fi
 

@@ -33,6 +33,18 @@ jobs:
           INPUT_TAG: ${{ inputs.tag }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
+          # `nodejs` is the Node major of the row, as a string ("26"), or absent.
+          # Only trixie rows may have it: the Node image and Playwright's package
+          # list are the Debian 13 ones. A row that still says `true` fails here,
+          # so it cannot build with a Node major that nobody chose.
+          bad_node=$(jq -r '[.[] | select(.nodejs != null and (
+              (.nodejs | type) != "string" or (.nodejs | test("^[0-9]+$") | not) or .debian != "trixie"
+            )) | .tag] | join(", ")' versions.json)
+          if [ -n "$bad_node" ]; then
+            echo "::error title=Bad nodejs field::$bad_node: nodejs must be a Node major as a string, on a trixie row" >&2
+            exit 1
+          fi
+
           requested_alias=""
           alias_source=""
 
@@ -190,6 +202,9 @@ jobs:
           # Every value is a build arg; the Dockerfile reads the files from
           # config/ itself. A null `caddyfile` arrives as an empty string, which
           # is how a row keeps the Caddyfile of the base image.
+          # NODE_MAJOR is sent only for a row with Node: an empty value would
+          # make `FROM node:-trixie-slim`, which fails even though that stage
+          # is not built. The action drops the empty line.
           build-args: |
             PHP_VERSION=${{ matrix.php }}
             DEBIAN_VARIANT=${{ matrix.debian }}
@@ -199,7 +214,8 @@ jobs:
             COMPOSER_TEMPLATE=${{ matrix.composer_json }}
             MAHO_VERSION=${{ matrix.maho }}
             CADDYFILE=${{ matrix.caddyfile }}
-            NODEJS=${{ matrix.nodejs || false }}
+            NODEJS=${{ matrix.nodejs && 'true' || 'false' }}
+            ${{ matrix.nodejs && format('NODE_MAJOR={0}', matrix.nodejs) || '' }}
           # No layer cache on purpose. `apt-get upgrade` and `composer install`
           # must run on every build, since that refresh is the whole point of the
           # scheduled rebuild, and they sit at the top of the layer chain, so
@@ -218,7 +234,8 @@ jobs:
         if: ${{ matrix.test }}
         env:
           MAHO_VERSION: ${{ matrix.maho }}
-          NODEJS: ${{ matrix.nodejs || false }}
+          NODEJS: ${{ matrix.nodejs && 'true' || 'false' }}
+          NODE_MAJOR: ${{ matrix.nodejs }}
           MYSQL: ${{ matrix.mysql }}
           PGSQL: ${{ matrix.pgsql }}
           SQLITE: ${{ matrix.sqlite }}
