@@ -83,7 +83,7 @@ There is no lookup rule to simulate. A field names a file:
 | `caddyfile` | `config/caddyfile/<value>.caddyfile` |
 
 The build arg is `COMPOSER_TEMPLATE`, not `COMPOSER`, because Composer reads
-`$COMPOSER` as the name of its manifest file and would open `25.11` instead of
+`$COMPOSER` as the name of its manifest file and would open `26.11` instead of
 `composer.json`.
 
 The Caddyfile is the exception to that direct `COPY`. Its selection is optional,
@@ -136,7 +136,12 @@ Note: there is no `composer.lock` in this repo, so every rebuild re-resolves the
 Different MahoCommerce versions need different `composer.json` structures:
 - `25.5.json`: Legacy with tinymce deps, composer-patches, CVE audit ignore
 - `25.7.json`: With composer-patches and enable-patching (used by 25.7, 25.9)
-- `25.11.json`: Clean, minimal (used by 25.11+, 26.x, latest, nightly)
+- `25.11.json`: Clean, minimal (used by 25.11 to 26.11.0)
+- `26.11.json`: `25.11.json` plus `"minimum-stability": "beta"` and `"prefer-stable": true` (used by 26.11.1+, latest, nightly). From 26.11.1 and on `main`, Maho requires `symfony/ai-*` `^1.0`, and only `1.0.0-BETA1` exists. With the default `stable` minimum stability, `composer install` fails. The Maho 26.11.1 upgrade notes give the same two settings
+  - **TODO**: remove `minimum-stability` and `prefer-stable` from `26.11.json` when all of these are true. Edit the template in place: the rows that use it then build with the default `stable`, and no new template is necessary.
+    1. `symfony/ai-agent`, `symfony/ai-platform`, `symfony/mcp-bundle` and `symfony/ai-generic-platform` have a stable `1.x` release on Packagist.
+    2. The `require` of every Maho release that uses this template, and of Maho `main`, accepts that stable release.
+    3. A dry run passes without the two settings. Copy the template to an empty directory, set `VERSION` to the release, and run `composer update --dry-run --no-dev --ignore-platform-reqs --no-plugins`.
 
 The Dockerfile copies the template and replaces the `VERSION` placeholder in `require` with the `MAHO_VERSION` build arg.
 
@@ -240,9 +245,9 @@ The web wizard is broken in every Maho before 26.7.5
 and published, but not tested. Testing them would fail their merge and skip
 every alias. The threshold is a numeric version compare, not a list of tags, so
 26.7.5 starts being tested the day its rows are added and nothing here needs
-editing — the same idea as `eol` retiring a tag on its own. Today seventeen rows
+editing — the same idea as `eol` retiring a tag on its own. Today eighteen rows
 qualify: the three tags each of `26.7.5`, `26.9.0`, `26.9.1`, `26.9.2` and
-`26.9.3`, the one tag of `26.11.0`, and `nightly`.
+`26.9.3`, the one tag each of `26.11.0` and `26.11.1`, and `nightly`.
 
 Run it locally with `./tests/image.sh <image>`; it needs docker, curl, jq, node
 and npm.

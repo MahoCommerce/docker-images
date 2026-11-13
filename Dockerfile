@@ -27,8 +27,8 @@ ARG SQLITE=true
 # which is what the rows of versions.json before Maho 26.7 ask for.
 # Not named COMPOSER: build args are exported to RUN as environment variables,
 # and Composer reads $COMPOSER as the name of its manifest file, so it would
-# try to open "25.11" instead of composer.json.
-ARG COMPOSER_TEMPLATE=25.11
+# try to open "26.11" instead of composer.json.
+ARG COMPOSER_TEMPLATE=26.11
 ARG CADDYFILE=26.11
 ARG MAHO_VERSION=dev-main
 
