@@ -245,9 +245,9 @@ The web wizard is broken in every Maho before 26.7.5
 and published, but not tested. Testing them would fail their merge and skip
 every alias. The threshold is a numeric version compare, not a list of tags, so
 26.7.5 starts being tested the day its rows are added and nothing here needs
-editing — the same idea as `eol` retiring a tag on its own. Today eighteen rows
+editing — the same idea as `eol` retiring a tag on its own. Today nineteen rows
 qualify: the three tags each of `26.7.5`, `26.9.0`, `26.9.1`, `26.9.2` and
-`26.9.3`, the one tag each of `26.11.0` and `26.11.1`, and `nightly`.
+`26.9.3`, the one tag each of `26.11.0`, `26.11.1` and `26.11.3`, and `nightly`.
 
 Run it locally with `./tests/image.sh <image>`; it needs docker, curl, jq, node
 and npm.
