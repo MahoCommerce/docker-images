@@ -4,7 +4,7 @@ This image is based on FrankenPHP and is specifically designed for deployment in
 
 ## Repository tags
 
-- `nightly`: `dev-main` version of Maho, running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
+- `nightly`: `dev-main` version of Maho, running on latest `FrankenPHP` + `PHP 8.6` (Trixie)
 - `latest`: latest stable release version of Maho (26.11.3), running on latest `FrankenPHP` + `PHP 8.5` (Trixie)
 - `latest-php8.5`: the same image as `latest`
 - `latest-php8.4`, `latest-php8.3`: the newest Maho release that runs on that PHP version. Today this is **26.9.3, not 26.11.3**, because Maho 26.11 requires PHP 8.5.1 or later. These tags stay on 26.9.3 and still get the security rebuilds, until their PHP version reaches end of life (see [Support lifecycle](#support-lifecycle)). To get Maho 26.11, move to `latest` or `latest-php8.5`

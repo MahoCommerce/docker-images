@@ -50,5 +50,5 @@
   { "tag": "26.11.0-php8.5", "php": "8.5", "debian": "trixie",   "maho": "26.11.0",  "composer_json": "25.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.11", "nodejs": "26", "eol": "2029-12-31" },
   { "tag": "26.11.1-php8.5", "php": "8.5", "debian": "trixie",   "maho": "26.11.1",  "composer_json": "26.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.11", "nodejs": "26", "eol": "2029-12-31" },
   { "tag": "26.11.3-php8.5", "php": "8.5", "debian": "trixie",   "maho": "26.11.3",  "composer_json": "26.11", "mysql": true, "pgsql": true,  "sqlite": true,  "caddyfile": "26.11", "nodejs": "26", "eol": "2029-12-31", "aliases": ["latest", "latest-php8.5"] },
-  { "tag": "nightly",        "php": "8.5", "debian": "trixie",   "maho": "dev-main", "composer_json": "26.11", "mysql": true, "pgsql": true,  "sqlite": true, "caddyfile": "26.11", "nodejs": "26" }
+  { "tag": "nightly",        "php": "8.6", "debian": "trixie",   "maho": "dev-main", "composer_json": "26.11", "mysql": true, "pgsql": true,  "sqlite": true, "caddyfile": "26.11", "nodejs": "26" }
 ]
